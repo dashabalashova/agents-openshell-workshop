@@ -1,40 +1,30 @@
-PARTICIPANT: steps 2b and 3
-===========================
-You will run a small team of AI agents inside an OpenShell sandbox: a smart "lead" model plans, small "worker" models search the web.
-One notebook shows how the agent works (findings, who did what) and how OpenShell controls it (placeholders instead of keys, 2 allowed endpoints, 28 checks, audit log).
+PARTICIPANT GUIDE
+=================
+You run a small team of AI agents in an OpenShell sandbox: a smart "lead" model plans, small "worker" models search the web.
+One notebook shows how the agent works and how OpenShell controls it (28 checks, audit log).
 
-WHERE THE VALUES COME FROM
-  image address                  from the instructor
-  NEBIUS_API_KEY, TAVILY_API_KEY from the instructor, privately (workshop keys). Your own keys also work:
-                                 Token Factory key: https://tokenfactory.nebius.com (log in with Google or GitHub, create an API key)
-                                 Tavily key:        https://app.tavily.com (sign up, copy the API key; it starts with tvly-)
-  JUPYTER_TOKEN                  nobody gives it to you: YOU make it up. It is the password of your Devlab: 16+ random characters.
-                                 In any terminal:  openssl rand -hex 16     or     python3 -c "import secrets; print(secrets.token_hex(16))"     (or a password manager)
-                                 Write it down: you need it to open your Devlab (if you lose it, create a new Devlab with a new token).
+VALUES
+  image address, NEBIUS_API_KEY, TAVILY_API_KEY   from the instructor (workshop keys, privately)
+  JUPYTER_TOKEN   the password of your Devlab: make up 16+ random characters (openssl rand -hex 16) and write it down
 
-STEP 2b  CREATE YOUR DEVLAB  (console -> Serverless AI -> Devlabs -> Create; field names may differ a little)
-    Image            the address from the instructor           Port (HTTP)   8888             Workspace path   /workspace
-    Machine          cpu-d3 / 4vcpu-16gb, disk 100 GiB          Public IP     yes
-    Variables        JUPYTER_TOKEN=<yours>    NEBIUS_API_KEY=<key>    TAVILY_API_KEY=<key>     (optional: LEAD_MODEL, WORKER_MODEL; the defaults are fine)
-    If the form offers secret-type variables, use them for the three. The keys go ONLY here: not into the notebook, not into a file, not into a chat.
-    Wait for RUNNING (3-4 minutes), open the public URL, enter your token.
+1. CREATE YOUR DEVLAB  (console -> Serverless AI -> Devlabs -> Create; field names may differ a little)
+     Image: the address above   Port (HTTP): 8888   Workspace path: /workspace   Machine: cpu-d3 4vcpu-16gb, 100 GiB   Public IP: yes
+     Variables: JUPYTER_TOKEN, NEBIUS_API_KEY, TAVILY_API_KEY  (secret-type if offered; keys go only here, never into a notebook, file or chat)
+   Wait for RUNNING (3-4 min), open the URL, enter your token.
 
-STEP 3  LOAD THE CODE AND RUN
-    1. File -> New -> Terminal, paste and press Enter:
-         cd /workspace && curl -fsSL https://github.com/dashabalashova/agents-openshell-workshop/archive/refs/heads/main.tar.gz | tar xz --strip-components=1
-       The file browser shows radar-openshell.ipynb, agent.py and the folder sandbox/.
-    2. Open radar-openshell.ipynb -> Run -> Run All Cells (1-3 minutes; the first run builds the sandbox image).
-       Success = the last result line says "TOTAL: 28/28 checks passed".
-    3. Read it:  5a findings | 5b who did what (lead 2 calls, workers ~6) | 5c the checks | 6 the audit log (DENIED lines for evil.example, arxiv.org, example.com).
-    4. Try (the instructor guides you): edit sandbox/policy.yaml, run the cell "case.up()" (section 4), re-run from section 5.
-       Which check fails when you loosen the policy, and which DENIED line disappears? To change the agent open agent.py.
-    5. Finish: run the last cell (case.down()). Delete your Devlab in the console. Never share your token or a screenshot that shows it.
+2. LOAD THE CODE   File -> New -> Terminal:
+     cd /workspace && curl -fsSL https://github.com/dashabalashova/agents-openshell-workshop/archive/refs/heads/main.tar.gz | tar xz --strip-components=1
 
-The console keeps typed values in the Devlab settings, so use the workshop keys, not personal ones.
+3. RUN   Open radar-openshell.ipynb -> Run All Cells (1-3 min; the first run builds the sandbox image).
+   Success: the last line says "TOTAL: 28/28 checks passed". Read: 5a findings | 5b who did what | 5c checks | 6 audit log (DENIED lines).
 
-IF SOMETHING GOES WRONG
-    "keys not set"                          a variable is missing or misspelled: check the Devlab settings
-    "Request timed out" / a model error     run the cell again (the model was busy)
-    "sandbox was not created"               run the last cell (case.down()), then section 4 again
-    the image does not start                tell the instructor (the Devlab must be in the same project as the registry, or have access to it)
-    you broke a file                        repeat step 3.1 (it restores the files; copy sandbox/policy.yaml first if you want to keep it)
+4. TRY   Edit sandbox/policy.yaml, run case.up() (section 4), re-run from section 5: which check fails, which DENIED line disappears?
+
+5. FINISH   Run the last cell (case.down()), delete your Devlab. Never share your token.
+
+PROBLEMS
+  "keys not set"            a variable is missing or misspelled in the Devlab settings
+  model timeout             run the cell again
+  "sandbox was not created" run the last cell (case.down()), then section 4 again
+  image does not start      tell the instructor
+  broke a file              repeat step 2 (copy sandbox/policy.yaml first to keep it)
