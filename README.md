@@ -4,7 +4,7 @@ A student of [CS 329Z: Engineering AI Agents](https://cs329z.stanford.edu) wants
 A team of two LLMs reads the course schedule, picks the topics, searches the web and returns the best new items, inside an
 [NVIDIA OpenShell](https://github.com/NVIDIA/OpenShell) sandbox. One notebook shows **how the agent works** and **how OpenShell controls it**.
 
-**LLMs:** [Token Factory](https://tokenfactory.nebius.com) · **Search:** [Tavily](https://tavily.com) · **Devlab:** Serverless AI · **Sandbox:** [OpenShell](https://github.com/NVIDIA/OpenShell)
+**LLMs:** [Token Factory](https://tokenfactory.nebius.com) · **Search:** [Tavily](https://tavily.com) · **Devlab:** [Serverless AI](https://nebius.com/serverless) · **Sandbox:** [OpenShell](https://github.com/NVIDIA/OpenShell)
 
 | Part | Role in the workshop |
 |---|---|
