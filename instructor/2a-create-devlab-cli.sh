@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Step 2a: create a Devlab from the newest registry image and wait until it runs. ~4 min; prints the URL.
+# Step 2a: create a Devlab from the :latest registry image and wait until it runs. ~4 min; prints the URL.
 # ./2a-create-devlab-cli.sh [--delete]   Another one: DEVLAB_NAME=ws-alice JUPYTER_TOKEN=... ./2a-create-devlab-cli.sh
 # Settings and secrets: config.env (a JUPYTER_TOKEN in the environment wins). DRY_RUN=1 only checks; IMAGE=... overrides the image.
 # The token and keys are command-line arguments: visible in `ps` on this machine while the CLI runs.
@@ -30,12 +30,11 @@ for k in JUPYTER_TOKEN NEBIUS_API_KEY TAVILY_API_KEY; do [ -n "${!k:-}" ] || die
 [ "${#JUPYTER_TOKEN}" -ge 16 ] || die "JUPYTER_TOKEN must be at least 16 characters (openssl rand -hex 16)"
 [ -z "$(devlab | jq -r '.metadata.id // empty')" ] || die "a Devlab named $DEVLAB_NAME already exists: ./2a-create-devlab-cli.sh --delete (or change DEVLAB_NAME)"
 : "${SUBNET:=$(nebius vpc subnet list --parent-id "$PROJECT_ID" --format json | jq -r '.items[0].metadata.id // empty')}"
-if [ -z "${IMAGE:-}" ]; then   # the newest tagged image of the registry
+if [ -z "${IMAGE:-}" ]; then   # the :latest image of the registry
   reg=$(nebius registry get-by-name --parent-id "$PROJECT_ID" --name "$REGISTRY_NAME" --format json 2>/dev/null | jq -r '.metadata.id // empty') || true
   [ -n "$reg" ] || die "no registry $REGISTRY_NAME: run ./1-build-image.sh first"
-  tag=$(nebius registry image list --parent-id "$reg" --format json | jq -r '[.items[]? | select((.tags // []) | length > 0)] | sort_by(.created_at) | last | .tags[0] // empty')
-  [ -n "$tag" ] || die "no image in the registry: run ./1-build-image.sh first"
-  IMAGE="$CR/${reg#registry-}/$IMAGE_NAME:$tag"
+  nebius registry image list --parent-id "$reg" --format json | jq -e '[.items[]? | select((.tags // []) | index("latest"))] | length > 0' >/dev/null || die "no :latest image in the registry: run ./1-build-image.sh first"
+  IMAGE="$CR/${reg#registry-}/$IMAGE_NAME:latest"
 fi
 say "Devlab $DEVLAB_NAME: project $PROJECT_ID, image $IMAGE"
 

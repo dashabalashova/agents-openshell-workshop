@@ -1,19 +1,12 @@
 #!/usr/bin/env python3
-"""Prepared setup of the radar-openshell case: providers, sandbox image, policy and the sandbox itself.
-
-    up()    (re)create everything from the files in this folder; idempotent
-    down()  delete the sandbox, the providers and their profiles
-
-Files used: policy.yaml, profiles/*.yaml, Dockerfile, app/main.py, app/probe.py and ../agent.py (the radar agent,
-copied into the image as it is). The real keys are read from the environment and handed to
-the OpenShell gateway as provider credentials (--credential NAME, no value on any command line); the sandbox
-only gets placeholders. The notebook radar-openshell.ipynb imports this module and calls up() / down().
-"""
+"""Setup of the radar-openshell case: up() (re)creates providers, sandbox image, policy and sandbox; down() deletes them.
+Real keys come from the environment and go to the gateway as provider credentials (no value on any command line);
+the sandbox only gets placeholders."""
 import os, re, shlex, shutil, subprocess, tempfile, time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-AGENT = HERE.parent / "agent.py"               # the same file the notebook radar.ipynb imports
+AGENT = HERE.parent / "agent.py"             
 SANDBOX = "radar-case"
 IMAGE = "radar-sandbox:local"
 KEYS = ("NEBIUS_API_KEY", "TAVILY_API_KEY")

@@ -19,7 +19,7 @@ PREPARE   nebius CLI logged in, jq, rsync, python3, ~/.ssh/id_ed25519.pub
                                  from GitHub, files, keys set, gateway connected, notebook without errors, "28/28", agent ran). Exit 0 only if all pass.
                                  Run it after step 2a and after every new image or code on GitHub. It does not test the console form.
 
-HAND TO PARTICIPANTS   workshop/participant.txt, the image address, the two API keys (privately), the GitHub link.
+HAND TO PARTICIPANTS   handout.txt (copy handout.example.txt, fill it; never commit), privately. The image address is printed by step 1.
 
 SESSION (90 min)   10 threat model | 15 create Devlabs, load, open | 25 the agent | 25 OpenShell (policy, checks, audit) | 20 hands-on: edit policy.yaml, case.up(), re-run
                    (allow arxiv.org -> its check FAILS; allow GET /search -> "denied method" FAILS; drop POST /v1/chat/completions -> the agent stops) | 5 wrap-up

@@ -1,14 +1,5 @@
-"""The OpenShell checks of the radar-openshell case. The notebook only calls these functions.
-
-    run_agent(topics)    run the radar inside the sandbox and copy the findings out
-    show_agent_work()    how the agent worked in the sandbox: calls per role and model, searches, trace events
-    run_checks(findings) the agent, credentials, network, filesystem and identity checks
-    audit()              the audit log and the effective policy
-    summary()            PASS/FAIL table (raises if something failed)
-
-Every check has an expected outcome. DENIED means the request never reached the internet (blocked by policy),
-REACHED means it went through.
-"""
+"""The OpenShell checks (the notebook only calls these): run_agent, show_agent_work, run_checks, audit, summary.
+DENIED = blocked by policy, REACHED = went through."""
 import json, os, re, subprocess, sys, time
 from collections import Counter
 

@@ -8,9 +8,7 @@ umask 077
 STATE=/workspace/.openshell
 mkdir -p "$STATE"
 
-# Infrastructure processes (dockerd, containerd, the gateway) never see the token or the API keys.
-# Only JupyterLab and its kernels get them. This prefix is an external command, so it also works
-# for background jobs: `env` replaces itself with the target, and $! is the real process.
+# dockerd, containerd and the gateway never see the token or the API keys; only JupyterLab and its kernels do.
 STRIP=(env -u JUPYTER_TOKEN -u NEBIUS_API_KEY -u TAVILY_API_KEY)
 
 # mTLS certificates for the gateway (created once, kept on the volume).
@@ -48,8 +46,7 @@ wait_for "docker" docker info
 "${STRIP[@]}" openshell-gateway --config /etc/openshell/gateway.toml &
 wait_for "gateway" curl -sf http://127.0.0.1:17671/readyz
 
-# Registration persists on the volume; `gateway add` rejects duplicates.
-# (The list is captured first: `list | grep -q` under pipefail can report a false "not found".)
+# Registration persists on the volume; `gateway add` rejects duplicates (list first: `list | grep -q` under pipefail can misreport).
 gateways=$(openshell gateway list --output json)
 if ! grep -q '"devlab"' <<<"$gateways"; then
   openshell gateway add https://127.0.0.1:17670 --local --name devlab

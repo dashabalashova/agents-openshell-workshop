@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Step 1: temporary VM -> Devlab image -> smoke test -> registry -> push -> VM deleted. ~10 min; prints the image address.
+# Step 1: temporary VM -> Devlab image -> smoke test -> registry -> push (tags: date and latest) -> VM deleted. ~10 min; prints the image address.
 # ./1-build-image.sh [--delete: remove registry and leftover VM]   Settings: config.env. DRY_RUN=1 only checks, KEEP_VM=1 keeps the VM.
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -80,7 +80,7 @@ for _ in $(seq 60); do "${SSH[@]}" "ubuntu@$IP" true 2>/dev/null && break; sleep
 say "2/5 Registry $REGISTRY_NAME"
 [ -n "$(registry_id)" ] || nebius registry create --parent-id "$PROJECT_ID" --name "$REGISTRY_NAME" >/dev/null
 reg=$(registry_id); [ -n "$reg" ] || die "the registry was not created"
-IMAGE="$CR/${reg#registry-}/$IMAGE_NAME:$TAG"; echo "    image: $IMAGE"
+LATEST="$CR/${reg#registry-}/$IMAGE_NAME:latest"; IMAGE="$CR/${reg#registry-}/$IMAGE_NAME:$TAG"; echo "    image: $IMAGE"
 
 # ---- 3. build
 say "3/5 Build the image on the VM"
@@ -111,16 +111,16 @@ REMOTE
 # ---- 5. push, then the VM is not needed any more
 say "5/5 Push the image"
 nebius iam get-access-token | "${SSH[@]}" "ubuntu@$IP" "sudo docker login $CR --username iam --password-stdin" 2>&1 | grep -q Succeeded || die "registry login failed"
-"${SSH[@]}" "ubuntu@$IP" "sudo docker push '$IMAGE' 2>&1 | tail -2; sudo docker logout $CR >/dev/null 2>&1"
-nebius registry image list --parent-id "$reg" --format json | jq -e --arg t "$TAG" '[.items[]? | select((.tags // []) | index($t))] | length > 0' >/dev/null || die "the image is not in the registry"
+"${SSH[@]}" "ubuntu@$IP" "sudo docker tag '$IMAGE' '$LATEST' && sudo docker push '$IMAGE' 2>&1 | tail -1 && sudo docker push '$LATEST' 2>&1 | tail -1; sudo docker logout $CR >/dev/null 2>&1"
+nebius registry image list --parent-id "$reg" --format json | jq -e '[.items[]? | select((.tags // []) | index("latest"))] | length > 0' >/dev/null || die "the image is not in the registry"
 delete_vm; trap - EXIT
 
 cat <<EOF
 
-Image ready: $IMAGE
+Image ready: $LATEST  (also $IMAGE)
 
 For the participants (Devlab creation form in the console):
-  Image     $IMAGE
+  Image     $LATEST
   Port      8888 (HTTP)      Workspace path  /workspace      Public IP  yes
   Machine   $DEVLAB_PLATFORM $DEVLAB_PRESET      Disk  $DEVLAB_DISK
   Variables JUPYTER_TOKEN (their own, 16+ characters), NEBIUS_API_KEY, TAVILY_API_KEY      (../workshop/participant.txt)

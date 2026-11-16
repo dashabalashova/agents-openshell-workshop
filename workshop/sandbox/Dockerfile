@@ -1,5 +1,4 @@
-# Sandbox image: python + the two client libraries + the radar agent (agent.py, copied in by case.py up,
-# the same file the notebook radar.ipynb imports) + main.py (entry point) + probe.py (used by the checks).
+# Sandbox image: python + client libraries + agent.py (copied in by case.up()) + main.py (entry) + probe.py (used by the checks).
 FROM python:3.12-slim-bookworm
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl iproute2 nftables \
     && rm -rf /var/lib/apt/lists/*

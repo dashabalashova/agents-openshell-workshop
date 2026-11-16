@@ -1,12 +1,11 @@
-"""Agent radar for CS 329Z: a small team of two LLMs that finds fresh articles and projects about AI agents.
+"""Agent radar: a small team of two LLMs that finds fresh articles and projects about AI agents.
 
-    lead    the smart model: plans the searches, then reviews all candidates and writes the final answer
-    workers the small model, one sub-agent per topic: runs the planned Tavily searches, returns candidates
+    lead    the smart model: plans the searches, then reviews the candidates and writes the final answer
+    workers the small model, one sub-agent per topic: runs the planned Tavily searches
     code    dates, URL checks, memory, report: fixed code, never a model
 
-Nobody generates or runs code. The same file runs in the notebook (radar.ipynb) and inside the OpenShell
-sandbox (sandbox/): the sandbox image copies it as it is. Where files are written is set by
-RADAR_WORK (default /workspace/radar; the sandbox entry point app/main.py sets /sandbox/runs).
+Nobody generates or runs code. Runs in the notebook and, copied as it is, inside the sandbox.
+Files go to RADAR_WORK (default /workspace/radar; /sandbox/runs inside the sandbox).
 """
 import json, os, re, time, datetime as dt
 from collections import Counter
@@ -20,9 +19,8 @@ from tavily import TavilyClient
 # ---- settings ----------------------------------------------------------------------------------------------
 BASE_URL = "https://api.tokenfactory.nebius.com/v1/"
 LEAD_MODEL   = os.environ.get("LEAD_MODEL", "moonshotai/Kimi-K3")   # the smart model: planning and final decisions
-# (moonshotai/Kimi-K3.1-Pro is smarter but answers in 15-30 s, and such long requests are sometimes cut on the way through the sandbox proxy)
 WORKER_MODEL = os.environ.get("WORKER_MODEL", "Qwen/Qwen3-30B-A3B-Instruct-2507")                     # the small model: simple sub-agents
-# both are checked against GET /v1/models (check_model); any pair of models with function calling works
+# any pair of models with function calling works (check_model lists them)
 
 MAX_SEARCHES          = 6     # search calls per run, all workers together
 SEARCHES_PER_WORKER   = 3     # upper limit for one worker (the real limit is MAX_SEARCHES // number of topics)
