@@ -5,3 +5,5 @@ handout.txt
 .venv-tools/
 .ipynb_checkpoints/
 __pycache__/
+# local documents
+*.docx
