@@ -120,10 +120,11 @@ print("started")
         lead = re.search(r"^lead .*: (\d+) calls", text, re.M)
         worker = re.search(r"^worker .*: (\d+) calls in (\d+) sub-agents -> (\d+) candidates", text, re.M)
         findings = re.search(r"^findings: (\d+)", text, re.M)
+        picked = re.search(r"^lead picked: (.*)$", text, re.M)
         check("the notebook ran without errors", not errors, str(errors) if errors else "")
         check("all OpenShell checks passed", bool(total) and total.group(1) == total.group(2), total.group(0) if total else "no TOTAL line")
         check("the two-model agent ran in the sandbox", bool(lead and worker and findings) and int(findings.group(1)) > 0,
-              f"lead {lead.group(1)} calls, workers {worker.group(1)} calls in {worker.group(2)} sub-agents, {worker.group(3)} candidates, {findings.group(1)} findings" if lead and worker and findings else "agent summary missing")
+              f"lead picked [{picked.group(1) if picked else '?'}], {lead.group(1)} calls, workers {worker.group(1)} calls in {worker.group(2)} sub-agents, {worker.group(3)} candidates, {findings.group(1)} findings" if lead and worker and findings else "agent summary missing")
         if not all(results):                                    # what went wrong: the FAIL lines and the output of the agent cell
             print("\n--- details of the failed run")
             for line in [l for l in text.splitlines() if l.startswith("FAIL")][:8]:

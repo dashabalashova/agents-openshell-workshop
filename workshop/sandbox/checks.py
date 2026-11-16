@@ -26,7 +26,7 @@ def run_agent(topics=()):
     """The agent runs inside the sandbox with placeholders instead of keys; findings are copied out.
     topics: candidate course topics for the lead (default: all)."""
     rc, out = case.run_in("python", "/sandbox/app/main.py", *topics, timeout=600)
-    print("\n".join(out.splitlines()[-4:]))
+    print("\n".join(out.splitlines()[-5:]))
     rc2, raw = case.run_in("cat", "/sandbox/runs/findings.json")
     findings = json.loads(raw) if rc2 == 0 else []
     target = CASE / "findings.json"
