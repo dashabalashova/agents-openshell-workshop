@@ -13,7 +13,7 @@ VALUES
    Wait for RUNNING (3-4 min), open the URL, enter your token.
 
 2. LOAD THE CODE   File -> New -> Terminal:
-     cd /workspace && curl -fsSL https://github.com/dashabalashova/agents-openshell-workshop/archive/refs/heads/main.tar.gz | tar xz --strip-components=1
+     cd /workspace && curl -fsSL https://github.com/dashabalashova/agents-openshell-workshop/archive/refs/heads/main.tar.gz | tar xz --strip-components=2 --wildcards '*/workshop/*'
 
 3. RUN   Open radar-openshell.ipynb -> Run All Cells (1-3 min; the first run builds the sandbox image).
    Success: the last line says "TOTAL: 28/28 checks passed". Read: 5a findings | 5b who did what | 5c checks | 6 audit log (DENIED lines).

@@ -1,9 +1,11 @@
-# secrets and local state: never commit
+# secrets and local settings: never commit
 .env
+config.env
 keys.txt
 *.pem
 
 # generated
+.venv-tools/
 .ipynb_checkpoints/
 __pycache__/
 *.pyc

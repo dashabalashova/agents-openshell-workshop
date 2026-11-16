@@ -31,19 +31,21 @@ The notebook runs 28 PASS/FAIL checks and shows the audit log.
 
 ## Files
 
+`workshop/` is what participants load into the Devlab; `instructor/` holds the scripts that build the Devlab image and create and check Devlabs (see `instructor/instructor.txt`).
+
 | File | What it is |
 |---|---|
-| `participant.txt` | handout: create the Devlab, load these files, run the notebook |
-| `radar-openshell.ipynb` | the scenario: runs the agent in the sandbox, shows results, checks, audit |
-| `agent.py` | the whole agent |
-| `sandbox/` | `case.py` (up/down), `checks.py`, `policy.yaml` (edit to experiment), `profiles/`, `Dockerfile`, `app/` |
+| `workshop/participant.txt` | handout: create the Devlab, load these files, run the notebook |
+| `workshop/radar-openshell.ipynb` | the scenario: runs the agent in the sandbox, shows results, checks, audit |
+| `workshop/agent.py` | the whole agent |
+| `workshop/sandbox/` | `case.py` (up/down), `checks.py`, `policy.yaml` (edit to experiment), `profiles/`, `Dockerfile`, `app/` |
 
 ## Run it
 
 Needs a Devlab with JupyterLab, Docker and an OpenShell gateway `devlab` (v0.1.1), with `NEBIUS_API_KEY` and `TAVILY_API_KEY` set as environment variables.
 
 ```bash
-cd /workspace && curl -fsSL https://github.com/dashabalashova/agents-openshell-workshop/archive/refs/heads/main.tar.gz | tar xz --strip-components=1
+cd /workspace && curl -fsSL https://github.com/dashabalashova/agents-openshell-workshop/archive/refs/heads/main.tar.gz | tar xz --strip-components=2 --wildcards '*/workshop/*'
 ```
 
 Open `radar-openshell.ipynb` and run all cells (~30 s once the sandbox image is built). Experiment: edit `sandbox/policy.yaml`, run `case.up()`, re-run from section 5.
