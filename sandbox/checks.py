@@ -62,7 +62,6 @@ def show_agent_work():
 
 
 def run_checks(findings):
-    case.load_env_files()
     run_in = case.run_in
 
     # --- the agent itself

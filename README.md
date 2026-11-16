@@ -56,8 +56,7 @@ You need a Devlab with JupyterLab, Docker and an OpenShell gateway named `devlab
    ```
 
    Running it again overwrites the files (copy `sandbox/policy.yaml` first if you edited it).
-2. Keys: if the Devlab was created with `NEBIUS_API_KEY` and `TAVILY_API_KEY` as environment variables you are done; otherwise create `/workspace/.env` with two lines
-   `NEBIUS_API_KEY=...` and `TAVILY_API_KEY=...` (never commit it).
+2. Keys: the Devlab is created with `NEBIUS_API_KEY` and `TAVILY_API_KEY` as environment variables; nothing to do.
 3. Open `radar-openshell.ipynb` and run all cells (about 30 seconds once the sandbox image is built; the first run also builds it).
 4. Experiment: edit `sandbox/policy.yaml`, run `case.up()` again and re-run from section 5. A weakened policy makes the matching check fail.
 5. Clean up with the last cell (`case.down()`).
@@ -65,7 +64,6 @@ You need a Devlab with JupyterLab, Docker and an OpenShell gateway named `devlab
 ## Status
 
 - The agent was tested with stub model and search clients (52 checks: division of labour between the two models, search budget, plain-word queries, invalid JSON, API failures, invented links, memory, dates); the layout of the repo is checked too (78 checks in total).
-- The notebook ran three times in a row in a freshly created Devlab (JupyterLab + OpenShell v0.1.1): 28 of 28 OpenShell checks each time, 7-8 findings, 65-86 s; the lead made 2 model calls, the workers 6 (3 sub-agents).
 - The default lead is the fast `moonshotai/Kimi-K3`. `moonshotai/Kimi-K3.1-Pro` is smarter but answers in 15-30 s, and such long requests were sometimes cut on the way through the sandbox proxy.
 - Not verified: the quality of the findings (summaries come from search snippets), whether the small model saves money (no prices measured), many participants at once.
 

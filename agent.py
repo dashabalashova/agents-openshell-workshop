@@ -34,7 +34,6 @@ CALL_TIMEOUT_S        = 60    # one model request; the client retries a dropped 
 MAX_QUERY_WORDS       = 10    # a search query is plain words; long queries with operators return few or no results
 
 KEY_NAMES = ("NEBIUS_API_KEY", "TAVILY_API_KEY")
-ENV_FILES = (Path("/workspace/.env"), Path(".env"))          # optional; real environment variables win
 
 WORK = Path(os.environ.get("RADAR_WORK", "/workspace/radar"))
 SEEN_FILE   = WORK / "seen_urls.json"
@@ -65,32 +64,8 @@ def show_settings():
 
 
 def load_keys():
-    """Make the two API keys available: real environment variables, then /workspace/.env (or ./.env),
-    then a hidden prompt (kept in this process only). Prints only "set / not set", never a value."""
-    import getpass
-    for env_file in ENV_FILES:
-        if env_file.is_file():
-            try:
-                env_file.chmod(0o600)
-            except OSError:                          # e.g. a read-only or foreign file: reading still works
-                pass
-            for line in env_file.read_text().splitlines():
-                line = line.strip()
-                if not line or line.startswith("#") or "=" not in line:
-                    continue
-                key, value = (s.strip() for s in line.split("=", 1))
-                key = key.removeprefix("export ").strip()
-                value = value.strip("\"'")
-                if key in KEY_NAMES and value and not os.environ.get(key):
-                    os.environ[key] = value
+    """Check the two API keys (environment variables); prints only "set / not set", never a value."""
     for name in KEY_NAMES:
-        if not os.environ.get(name):
-            try:
-                value = getpass.getpass(f"{name} (hidden input, this process only): ")
-            except Exception:                        # non-interactive run (nbconvert)
-                value = ""
-            if value:
-                os.environ[name] = value
         print(f"{name}: {'set' if os.environ.get(name) else 'not set'}")
     return all(os.environ.get(n) for n in KEY_NAMES)
 

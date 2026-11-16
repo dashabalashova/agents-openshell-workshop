@@ -5,7 +5,7 @@
     down()  delete the sandbox, the providers and their profiles
 
 Files used: policy.yaml, profiles/*.yaml, Dockerfile, app/main.py, app/probe.py and ../agent.py (the radar agent,
-copied into the image as it is). The real keys are read from the environment (or /workspace/.env) and handed to
+copied into the image as it is). The real keys are read from the environment and handed to
 the OpenShell gateway as provider credentials (--credential NAME, no value on any command line); the sandbox
 only gets placeholders. The notebook radar-openshell.ipynb imports this module and calls up() / down().
 """
@@ -45,19 +45,6 @@ def fail(message):
     raise SystemExit(f"ERROR: {message}")
 
 
-def load_env_files():
-    """Optional fallback: /workspace/.env or ./.env. Real environment variables always win."""
-    for env_file in (Path("/workspace/.env"), Path(".env")):
-        if env_file.is_file():
-            for line in env_file.read_text().splitlines():
-                line = line.strip()
-                if line and not line.startswith("#") and "=" in line:
-                    key, value = (s.strip() for s in line.split("=", 1))
-                    key, value = key.removeprefix("export ").strip(), value.strip("\"'")
-                    if key in KEYS and value and not os.environ.get(key):
-                        os.environ[key] = value
-
-
 def delete_everything():
     """Sandbox first (it keeps its providers in use), then providers, then profiles."""
     sh(f"openshell sandbox delete {SANDBOX}")
@@ -72,10 +59,9 @@ def delete_everything():
 
 
 def up():
-    load_env_files()
     missing = [k for k in KEYS if not os.environ.get(k)]
     if missing:
-        fail(f"missing {missing}: set them as environment variables (create-devlab.sh) or in /workspace/.env")
+        fail(f"missing {missing}: set them as environment variables of the Devlab")
     for path in (HERE / "policy.yaml", HERE / "Dockerfile", HERE / "app" / "main.py", HERE / "app" / "probe.py", AGENT):
         if not path.is_file():
             fail(f"{path} is missing: load the whole workshop content (agent.py and sandbox/)")

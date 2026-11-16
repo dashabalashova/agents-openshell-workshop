@@ -30,11 +30,10 @@ STEP 3  LOAD THE CODE AND RUN
        Which check fails when you loosen the policy, and which DENIED line disappears? To change the agent open agent.py.
     5. Finish: run the last cell (case.down()). Delete your Devlab in the console. Never share your token or a screenshot that shows it.
 
-NO "VARIABLES" FIELD IN THE FORM?  In the Devlab terminal create /workspace/.env with two lines  NEBIUS_API_KEY=...  and  TAVILY_API_KEY=...  and run  chmod 600 /workspace/.env
-    (the Devlab token is still needed in the form). The console keeps typed values in the Devlab settings, so use the workshop keys, not personal ones.
+The console keeps typed values in the Devlab settings, so use the workshop keys, not personal ones.
 
 IF SOMETHING GOES WRONG
-    "keys not set"                          a variable is missing or misspelled: check the Devlab settings (or create /workspace/.env)
+    "keys not set"                          a variable is missing or misspelled: check the Devlab settings
     "Request timed out" / a model error     run the cell again (the model was busy)
     "sandbox was not created"               run the last cell (case.down()), then section 4 again
     the image does not start                tell the instructor (the Devlab must be in the same project as the registry, or have access to it)
