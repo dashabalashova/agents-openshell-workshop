@@ -27,5 +27,5 @@ SESSION (90 min)   10 threat model | 15 create Devlabs, load, open | 25 the agen
 RISKS  A Devlab URL is public, protected only by its token: one token per participant, never on screen. Use dedicated keys and rotate them.
        Before the day: nebius login valid, Tavily plan covers participants x runs, participants' project can pull the image, create one Devlab through the console by hand.
 
-STATUS (2026-11-16)  From scratch: steps 1, 2a, 3 passed (10/10; notebook 28/28, 7 findings).
+STATUS (2026-11-16)  From scratch (all resources deleted first, image tagged :latest): steps 1, 2a, 3 passed (10/10; notebook 28/28, 6-7 findings).
                      Not verified: the console form (field names are approximate), many participants at once, finding quality, cost saving of the small model.
