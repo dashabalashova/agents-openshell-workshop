@@ -1,0 +1,9 @@
+id: nebius-token-factory
+display_name: Nebius Token Factory
+credentials:
+  - name: api_key
+    description: Nebius Token Factory API key
+    env_vars: [NEBIUS_API_KEY]
+    required: true
+    auth_style: bearer
+    header_name: authorization

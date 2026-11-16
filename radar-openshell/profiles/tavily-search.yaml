@@ -1,0 +1,9 @@
+id: tavily-search
+display_name: Tavily Search
+credentials:
+  - name: api_key
+    description: Tavily API key
+    env_vars: [TAVILY_API_KEY]
+    required: true
+    auth_style: bearer
+    header_name: authorization

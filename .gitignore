@@ -1,0 +1,12 @@
+# secrets and local state: never commit
+.env
+keys.txt
+*.pem
+
+# generated
+.ipynb_checkpoints/
+__pycache__/
+*.pyc
+findings.json
+traces.jsonl
+seen_urls.json
