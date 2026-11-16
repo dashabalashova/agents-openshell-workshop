@@ -1,0 +1,56 @@
+EXAMPLE RUN: radar-openshell-run.ipynb
+======================================
+One full run of the workshop notebook in a Nebius Devlab on 2026-11-16. All cells ran without errors.
+
+
+1. THE AGENT DID ITS JOB
+
+The task: a student of CS 329Z: Engineering AI Agents wants to know what is new before the next lectures.
+
+- The lead model (Kimi-K3) read the course schedule. Today there is a guest lecture on SWE-bench,
+  on Wednesday "Agent Safety & Guardrails", on Nov 30 "Coding & Software Agents".
+  So it picked three topics: coding agents, safety, evaluation.
+- It planned 2 web searches per topic. Three small worker models (Qwen3-30B) ran them with Tavily.
+- The lead then looked at what came back and decided evaluation needed more. It wrote 2 new queries
+  ("agent benchmark leaderboard new results", "LLM judge reliability bias study") and a fourth worker ran them.
+- Finally the lead picked the 8 best items, linked each one to a lecture and wrote a short digest.
+
+Numbers: 8 of 9 allowed searches, 63 seconds, 3 lead calls, 8 worker calls, 16 candidates -> 8 findings.
+
+Why 8 of 9: 9 is a limit, not a target. The plan uses 6 searches (3 topics x 2 queries); after reflecting,
+the lead may add up to 3 more. Here it found only evaluation too thin and asked for 2, so 6 + 2 = 8.
+If the first round had been good enough, the run would have stopped at 6. The limit keeps the search cost and the run time small.
+
+The 8 findings (and the lecture each one helps with):
+  - Skill-Inject: agent vulnerability to skill file attacks (paper)  -> Nov 18, Agent Safety & Guardrails
+  - Google optimizes Kubernetes for agentic workloads (release)       -> Nov 18, Agent Safety & Guardrails
+  - UAEF, AWS framework for evaluating AI agents (release)            -> Nov 11, LLM-as-Judge (extends it)
+  - A Survey on Agent-as-a-Judge (paper)                              -> Nov 11, LLM-as-Judge (extends it)
+  - ExpertCrowd-SWE: four tiers of coding agents (post)               -> Nov 16, SWE-bench guest lecture
+  - Deepnote Agent Initiative Benchmark (post)                        -> Nov 4, Evaluation & Benchmark Design
+  - Specification satisficing in AI coding agents (post)              -> Nov 30, Coding & Software Agents
+  - Amazon's HOPE pruning and calibration for agentic coding (post)   -> Oct 21, Optimization
+
+The digest (written by the lead):
+  "This week is heavy on evaluation and safety, which lines up well with the calendar. Before Wednesday's
+  Agent Safety & Guardrails lecture, read the Skill-Inject NeurIPS poster on prompt injection through agent
+  skill files and the report on Google's Kubernetes sandboxes for untrusted agent code. ..."
+
+
+2. OPENSHELL KEPT IT UNDER CONTROL: 28/28 CHECKS PASSED
+
+- Keys: inside the sandbox the agent only had placeholders, never the real keys. The real key was added
+  by the gateway on the way out, and only for its own service (the Tavily key does not work for Token Factory).
+- Network: the agent could reach only Tavily search and the Token Factory chat API, and only from python.
+  Blocked: evil.example (a key-stealing attempt), arxiv.org, example.com, curl, wrong methods and paths.
+- Files: the agent code was read-only; writing was possible only to /sandbox/runs and /tmp.
+- User: the agent ran as an unprivileged user (sandbox, uid 1500).
+- Audit log: every blocked and allowed request is listed with the reason (section 6 of the notebook).
+
+At the end the notebook deleted the sandbox and its providers (case.down()).
+
+
+WHAT TO TAKE AWAY
+The smart model makes the decisions (what to look for, what is missing, what is worth reading);
+the small models do the routine searching; plain code checks links and dates.
+Even if a web page tried to trick the agent, the sandbox would not let it leak keys, reach other sites or change its own code.

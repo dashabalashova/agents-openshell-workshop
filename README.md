@@ -34,6 +34,7 @@ A team of two LLMs reads the course schedule, picks the topics, searches the web
 |---|---|
 | `workshop/` | what participants load: `participant.txt` (guide), `radar-openshell.ipynb`, `agent.py`, `sandbox/` (setup, checks, `policy.yaml`) |
 | `instructor/` | `instructor.txt` (guide), scripts to build the Devlab image, create a Devlab and check it end to end |
+| `examples/` | one real run of the notebook with all outputs, and a plain-language description of the result |
 
 ## Run
 
