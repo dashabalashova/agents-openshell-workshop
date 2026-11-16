@@ -14,7 +14,7 @@ The agent cannot run code, but we do not want to rely on that alone: the sandbox
 
 | Role | Default model | Does |
 |---|---|---|
-| **lead**, the smart model | `moonshotai/Kimi-K3.1-Pro` | plans the searches; at the end reviews all candidates (drops duplicates and weak items, fixes topics, writes the final summaries) |
+| **lead**, the smart model | `moonshotai/Kimi-K3` | plans the searches; at the end reviews all candidates (drops duplicates and weak items, fixes topics, writes the final summaries) |
 | **workers**, small models, one sub-agent per topic | `Qwen/Qwen3-30B-A3B-Instruct-2507` | run the planned `tavily_search` calls and collect candidate links |
 
 Fixed code (not a model) sets the dates, checks every URL against the search results, keeps a memory of shown URLs, writes traces and draws the report.
@@ -63,8 +63,9 @@ You need a Devlab with JupyterLab, Docker and an OpenShell gateway named `devlab
 
 ## Status
 
-- The agent was tested with stub model and search clients (49 checks: division of labour between the two models, search budget, plain-word queries, invalid JSON, invented links, memory, dates); the layout of the repo is checked too (75 checks in total).
-- The notebook ran end to end in a freshly created Devlab (JupyterLab + OpenShell v0.1.1): the lead made 2 model calls, the workers 6, 12 candidates became 6 findings, and 28 of 28 OpenShell checks passed.
+- The agent was tested with stub model and search clients (53 checks: division of labour between the two models, search budget, plain-word queries, invalid JSON, API failures, invented links, memory, dates); the layout of the repo is checked too (79 checks in total).
+- The notebook ran three times in a row in a freshly created Devlab (JupyterLab + OpenShell v0.1.1): 28 of 28 OpenShell checks each time, 7-8 findings, 65-86 s; the lead made 2 model calls, the workers 6 (3 sub-agents).
+- The default lead is the fast `moonshotai/Kimi-K3`. `moonshotai/Kimi-K3.1-Pro` is smarter but answers in 15-30 s, and such long requests were sometimes cut on the way through the sandbox proxy.
 - Not verified: the quality of the findings (summaries come from search snippets), whether the small model saves money (no prices measured), many participants at once.
 
 ## Notes

@@ -14,12 +14,13 @@ from email.utils import parsedate_to_datetime
 from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
 
-from openai import OpenAI
+from openai import APIError, OpenAI
 from tavily import TavilyClient
 
 # ---- settings ----------------------------------------------------------------------------------------------
 BASE_URL = "https://api.tokenfactory.nebius.com/v1/"
-LEAD_MODEL   = os.environ.get("LEAD_MODEL", os.environ.get("MODEL", "moonshotai/Kimi-K3.1-Pro"))   # the smart model: planning and final decisions
+LEAD_MODEL   = os.environ.get("LEAD_MODEL", os.environ.get("MODEL", "moonshotai/Kimi-K3"))   # the smart model: planning and final decisions
+# (moonshotai/Kimi-K3.1-Pro is smarter but answers in 15-30 s, and such long requests are sometimes cut on the way through the sandbox proxy)
 WORKER_MODEL = os.environ.get("WORKER_MODEL", "Qwen/Qwen3-30B-A3B-Instruct-2507")                     # the small model: simple sub-agents
 # both are checked against GET /v1/models (check_model); any pair of models with function calling works
 
@@ -29,6 +30,7 @@ CANDIDATES_PER_WORKER = 4     # candidates one worker may hand to the lead
 MAX_FINDINGS          = 8     # findings in the report
 TIMEOUT_S             = 120   # total time budget of one run, seconds
 LEAD_RESERVE_S        = 30    # kept for the lead's final review: workers stop earlier when time is short
+CALL_TIMEOUT_S        = 60    # one model request; the client retries a dropped or timed-out request twice (max_retries)
 MAX_QUERY_WORDS       = 10    # a search query is plain words; long queries with operators return few or no results
 
 KEY_NAMES = ("NEBIUS_API_KEY", "TAVILY_API_KEY")
@@ -250,7 +252,7 @@ def model_call(ctx, role, messages, tools=None):
     model = ctx[role + "_model"]
     kwargs = {"tools": tools} if tools else {}
     resp = ctx["client"].chat.completions.create(model=model, messages=messages, temperature=0.2,
-                                                 timeout=max(5, ctx["left"]()), **kwargs)
+                                                 timeout=min(CALL_TIMEOUT_S, max(5, ctx["left"]())), **kwargs)
     msg = resp.choices[0].message
     ctx["calls"][role] += 1
     log_trace("model_call", role=role, model=model, tools_enabled=bool(tools),
@@ -342,7 +344,7 @@ def run_radar(topics=None, days=7, client=None, tavily=None, lead_model=None, wo
         topics = topics[:MAX_SEARCHES]
     per = min(SEARCHES_PER_WORKER, MAX_SEARCHES // len(topics))
     started = time.monotonic()
-    ctx = {"client": client or OpenAI(base_url=BASE_URL, api_key=os.environ["NEBIUS_API_KEY"]),
+    ctx = {"client": client or OpenAI(base_url=BASE_URL, api_key=os.environ["NEBIUS_API_KEY"], max_retries=2),
            "tavily": tavily or TavilyClient(api_key=os.environ["TAVILY_API_KEY"]),
            "lead_model": lead_model or LEAD_MODEL, "worker_model": worker_model or WORKER_MODEL,
            "time_range": "day" if days <= 1 else "week" if days <= 7 else "month",
@@ -366,8 +368,8 @@ def run_radar(topics=None, days=7, client=None, tavily=None, lead_model=None, wo
         workers_run += 1
         try:
             candidates += run_worker(ctx, topic, plan[topic])
-        except ValueError as err:
-            log_trace("worker_failed", role="worker", worker=topic, error=str(err))
+        except (ValueError, APIError) as err:                # invalid JSON twice, or the model API failed after its retries
+            log_trace("worker_failed", role="worker", worker=topic, error=f"{type(err).__name__}: {err}")
     unique = {}
     for c in candidates:
         unique.setdefault(canon(c["url"]), c)               # the same page found by two workers counts once
