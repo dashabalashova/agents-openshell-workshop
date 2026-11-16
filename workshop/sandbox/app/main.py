@@ -6,7 +6,7 @@ os.environ.setdefault("RADAR_WORK", "/sandbox/runs")
 
 from agent import run_radar
 
-topics = sys.argv[1:] or ["memory", "evaluation", "coding agents"]
+topics = sys.argv[1:] or None                  # default: the lead picks from all course topics
 findings = run_radar(topics=topics, days=7)
 with open("/sandbox/runs/findings.json", "w") as f:
     f.write(json.dumps(findings, ensure_ascii=False, indent=1))

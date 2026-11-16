@@ -1,6 +1,7 @@
 # Agent radar in an OpenShell sandbox
 
-A team of two LLMs searches the web for fresh articles and projects about AI agents, inside an
+A student of [CS 329Z: Engineering AI Agents](https://cs329z.stanford.edu) wants to know what is new for the coming lectures.
+A team of two LLMs reads the course schedule, picks the topics, searches the web and returns the best new items, inside an
 [NVIDIA OpenShell](https://github.com/NVIDIA/OpenShell) sandbox. One notebook shows **how the agent works** and **how OpenShell controls it**.
 Built for a workshop on Nebius Devlabs (JupyterLab + OpenShell).
 
@@ -8,7 +9,7 @@ Built for a workshop on Nebius Devlabs (JupyterLab + OpenShell).
 
 | Agent role | Default model | Does |
 |---|---|---|
-| lead | `moonshotai/Kimi-K3` | plans the searches, reviews the candidates, writes the summaries |
+| lead | `moonshotai/Kimi-K3` | picks 3 course topics from the schedule, plans the searches, reviews the candidates |
 | workers, one per topic | `Qwen/Qwen3-30B-A3B-Instruct-2507` | run the Tavily searches, collect candidates |
 
 | OpenShell layer | Guarantee |

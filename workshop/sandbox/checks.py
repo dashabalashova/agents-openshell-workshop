@@ -22,16 +22,17 @@ def probe(method, url, var="NEBIUS_API_KEY"):
     return case.run_in("python", "/sandbox/app/probe.py", method, url, var)[1].splitlines()[-1]
 
 
-def run_agent(topics=("memory", "evaluation", "coding agents")):
-    """The agent runs inside the sandbox with placeholders instead of keys; findings are copied out."""
+def run_agent(topics=()):
+    """The agent runs inside the sandbox with placeholders instead of keys; findings are copied out.
+    topics: candidate course topics for the lead (default: all)."""
     rc, out = case.run_in("python", "/sandbox/app/main.py", *topics, timeout=600)
-    print("\n".join(out.splitlines()[-3:]))
+    print("\n".join(out.splitlines()[-4:]))
     rc2, raw = case.run_in("cat", "/sandbox/runs/findings.json")
     findings = json.loads(raw) if rc2 == 0 else []
     target = CASE / "findings.json"
     target.write_text(json.dumps(findings, ensure_ascii=False, indent=1))
     for f in findings:
-        print(f"  {f['date']:11} [{f['course_topic']}] ({f['kind']}) {f['title'][:78]}\n              {f['url'][:100]}")
+        print(f"  {f['date']:11} [{f['topic']}] ({f['kind']}) {f['title'][:78]}\n              {f['url'][:100]}")
     print(f"saved: {target}  ({len(findings)} findings)")
     return findings
 
@@ -56,7 +57,7 @@ def run_checks(findings):
 
     # --- the agent itself
     check("radar", "the agent ran inside the sandbox and produced findings", len(findings) >= 1, f"{len(findings)} findings")
-    check("radar", "every finding has an https url and a course topic", all(f["url"].startswith("https://") and f["course_topic"] for f in findings))
+    check("radar", "every finding has an https url and a topic", all(f["url"].startswith("https://") and f["topic"] for f in findings))
 
     # --- credentials: the sandbox holds placeholders only
     env_dump = run_in("env")[1]

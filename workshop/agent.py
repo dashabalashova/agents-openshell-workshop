@@ -1,6 +1,6 @@
-"""Agent radar: a small team of two LLMs that finds fresh articles and projects about AI agents.
+"""Agent radar: a small team of two LLMs that finds what is new for a student of CS 329Z: Engineering AI Agents.
 
-    lead    the smart model: plans the searches, then reviews the candidates and writes the final answer
+    lead    the smart model: picks the course topics to check, plans the searches, reviews the candidates
     workers the small model, one sub-agent per topic: runs the planned Tavily searches
     code    dates, URL checks, memory, report: fixed code, never a model
 
@@ -21,8 +21,9 @@ BASE_URL = "https://api.tokenfactory.nebius.com/v1/"
 LEAD_MODEL   = os.environ.get("LEAD_MODEL", "moonshotai/Kimi-K3")                  # smart: plan and review
 WORKER_MODEL = os.environ.get("WORKER_MODEL", "Qwen/Qwen3-30B-A3B-Instruct-2507")  # small: search sub-agents
 
+TOPICS_PER_RUN        = 3     # the lead picks this many course topics per run
 MAX_SEARCHES          = 6     # search calls per run, all workers together
-SEARCHES_PER_WORKER   = 3     # upper limit for one worker (the real limit is MAX_SEARCHES // number of topics)
+SEARCHES_PER_WORKER   = 3     # upper limit for one worker (the real limit is MAX_SEARCHES // TOPICS_PER_RUN)
 CANDIDATES_PER_WORKER = 4     # candidates one worker may hand to the lead
 MAX_FINDINGS          = 8     # findings in the report
 TIMEOUT_S             = 120   # total time budget of one run, seconds
@@ -38,7 +39,34 @@ TRACES_FILE = WORK / "traces.jsonl"
 
 KINDS = ("paper", "project", "release", "post")
 
-TOPICS = {
+COURSE = "CS 329Z: Engineering AI Agents"
+COURSE_INFO = ("Stanford, Fall 2026 (https://cs329z.stanford.edu). Engineering agentic systems, from simple LLM pipelines to compound "
+               "AI systems to autonomous agents: choosing and decomposing problems, components, data, evals, design tradeoffs; "
+               "RAG, tool use and agent loops from scratch, then frameworks like DSPy.")
+SCHEDULE = """\
+2026-09-23  What Are Agentic Systems? (introduction)
+2026-09-28  LLMs for Builders
+2026-09-30  Retrieval-Augmented Generation                    [RAG]
+2026-10-05  Tool Use & Function Calling                       [tool use]
+2026-10-07  Frameworks & Orchestration                        [frameworks]
+2026-10-12  Agent Design Patterns & Scaffolds                 [design patterns]
+2026-10-14  Agent Memory Architectures                        [memory]
+2026-10-19  Multi-Agent Systems                               [multi-agent]
+2026-10-21  Optimization                                      [optimization]
+2026-10-26  Guest lecture: Terminal-Bench                     [evaluation, coding agents]
+2026-10-28  What Data Do Agents Need?                         [data]
+2026-11-02  Data Selection & Quality                          [data]
+2026-11-04  Evaluation Fundamentals & Benchmark Design        [evaluation]
+2026-11-09  Fireside chat with Andrew Ng
+2026-11-11  LLM-as-Judge & Evaluation Infrastructure          [evaluation]
+2026-11-16  Guest lecture: SWE-bench                          [coding agents, evaluation]
+2026-11-18  Agent Safety & Guardrails                         [safety]
+2026-11-23  no class (Thanksgiving) until 2026-11-30
+2026-11-30  Coding & Software Agents                          [coding agents]
+2026-12-02  Personal Agents                                   [personal agents]
+2026-12-09  Final project demo day"""                     # tentative schedule from the course site; [course topics]
+
+TOPICS = {                                   # the course topics (the syllabus); the lead picks from them
     "RAG":              "retrieval-augmented generation: indexes, chunking, reranking, grounding",
     "tool use":         "tool and function calling, MCP, tool schemas, tool errors",
     "frameworks":       "agent frameworks and SDKs (LangGraph, OpenAI Agents SDK, etc.)",
@@ -57,7 +85,10 @@ TOPICS = {
 def show_settings():
     print(f"lead   {LEAD_MODEL}\nworker {WORKER_MODEL}")
     print(f"limits: {MAX_SEARCHES} searches, {TIMEOUT_S} s, {MAX_FINDINGS} findings, {CANDIDATES_PER_WORKER} candidates per worker")
-    print(f"{len(TOPICS)} topics: {', '.join(TOPICS)}\nfiles: {WORK}")
+    print(f"{len(TOPICS)} course topics: {', '.join(TOPICS)}\nfiles: {WORK}")
+    today = dt.date.today().isoformat()
+    print(f"\n{COURSE}, today {today}; next lectures:")
+    print("\n".join([l for l in SCHEDULE.splitlines() if l[:10] >= today][:4]) or "  (the course is over)")
 
 
 def load_keys():
@@ -75,7 +106,7 @@ TOOLS = [{
         "description": "Search the web for fresh articles and projects. Returns title, url, content, date.",
         "parameters": {"type": "object",
                        "properties": {"query": {"type": "string", "description": "search query"},
-                                      "topic": {"type": "string", "enum": ["news", "general"],
+                                      "type": {"type": "string", "enum": ["news", "general"],
                                                 "description": "news: posts, news, releases (results have dates); general: papers and GitHub projects (usually no date)"}},
                        "required": ["query"]},
     },
@@ -141,15 +172,15 @@ def parse_findings(text, allowed_urls, seen):
         raise ValueError(f"not JSON: {e}")
     if not isinstance(data, list):
         raise ValueError("a JSON array was expected")
-    required = ("title", "url", "kind", "summary", "course_topic")
+    required = ("title", "url", "kind", "summary", "topic")
     out, dropped = [], []
     for i, item in enumerate(data):
         if not isinstance(item, dict) or any(not isinstance(item.get(k), str) or not item[k].strip() for k in required):
             raise ValueError(f"item {i}: non-empty string fields {required} are required")
         if item["kind"] not in KINDS:
             raise ValueError(f"item {i}: kind must be one of {KINDS}")
-        if item["course_topic"] not in TOPICS:
-            raise ValueError(f"item {i}: course_topic must be one of {list(TOPICS)}")
+        if item["topic"] not in TOPICS:
+            raise ValueError(f"item {i}: topic must be one of {list(TOPICS)}")
         if item["url"] not in allowed_urls:
             dropped.append((item["url"], "not in the Tavily results")); continue
         if canon(item["url"]) in seen or any(canon(o["url"]) == canon(item["url"]) for o in out):
@@ -163,40 +194,45 @@ def parse_findings(text, allowed_urls, seen):
 # ---- prompts ---------------------------------------------------------------------------------------------
 TOPIC_LIST = "\n".join(f"- {name}: {desc}" for name, desc in TOPICS.items())
 
-def plan_prompt(per, days):
-    return (f"You are the lead of a research radar for a student of the course CS 329Z: Engineering AI Agents.\n"
-            f"For each requested course topic write up to {per} English web-search queries that find NEW items (last {days} days): "
-            f"articles, papers, projects or releases about AI agents on that topic.\n"
-            f"Each query is plain natural-language words, 3 to {MAX_QUERY_WORDS} words. No quotes, no parentheses, no OR / AND, "
-            f"no site: / after: / before: operators, no dates: the search is already limited to the last {days} days. "
-            f"Different queries of one topic should look at different angles (for example one for papers, one for news and releases).\n"
-            f'Return ONLY a JSON object (no prose, no markdown): {{"<topic>": ["query", ...], ...}} with exactly the requested topics as keys.\n\n'
+RADAR = (f"a news radar for a student of the course {COURSE} who wants to keep up with what is new: "
+         f"papers, projects, releases and posts")
+
+def plan_prompt(n, per, days):
+    return (f"You are the lead of {RADAR}.\n"
+            f"About the course: {COURSE_INFO}\nCourse schedule:\n{SCHEDULE}\n"
+            f"Look at today's date in the user message and choose, from the candidate topics, the {n} course topics that are most "
+            f"useful for the student right now (prefer this week's and the next lectures). "
+            f"For each chosen topic write up to {per} English web-search queries for items from the last {days} days.\n"
+            f"Each query is plain words, 3 to {MAX_QUERY_WORDS} words: no quotes, parentheses, OR / AND, site: / after: / before: operators "
+            f"or dates (the search is already limited to the last {days} days). Queries of one topic should differ "
+            f"(for example one for papers, one for news and releases).\n"
+            f'Return ONLY a JSON object (no prose, no markdown): {{"<topic>": ["query", ...], ...}} with exactly {n} chosen topics as keys.\n\n'
             f"Course topics:\n{TOPIC_LIST}")
 
 def worker_prompt(topic, per):
-    return (f'You are a search worker, a sub-agent of a research radar for the course CS 329Z. Your topic: "{topic}" ({TOPICS[topic]}).\n'
-            f"Run the given queries with the tavily_search tool exactly as they are written (at most {per} calls). Use topic \"news\" for blog posts, news and releases "
-            f"(results then have dates) and topic \"general\" for papers and GitHub projects.\n"
+    return (f'You are a search worker of {RADAR}. Your course topic: "{topic}" ({TOPICS[topic]}).\n'
+            f"Run the given queries with the tavily_search tool exactly as written (at most {per} calls). Use type \"news\" for posts, news "
+            f"and releases (results have dates) and type \"general\" for papers and GitHub projects.\n"
             f"Then return ONLY a JSON array (no prose, no markdown) of at most {CANDIDATES_PER_WORKER} candidates:\n"
-            f'{{"title": str, "url": str, "kind": one of {list(KINDS)}, "summary": one sentence taken from the search results, '
-            f'"course_topic": one topic from the list below}}\n'
-            f"Rules: use only the search results; never invent links or facts; url must match a result url exactly; "
-            f"you never generate or run code.\n\nCourse topics:\n{TOPIC_LIST}")
+            f'{{"title": str, "url": str, "kind": one of {list(KINDS)}, "summary": one sentence from the search results, '
+            f'"topic": one topic from the list below}}\n'
+            f"Use only the search results: never invent links or facts; url must match a result url exactly.\n\n"
+            f"Course topics:\n{TOPIC_LIST}")
 
 def review_prompt():
-    return (f"You are the lead of a research radar for a student of the course CS 329Z: Engineering AI Agents.\n"
-            f"Sub-agents found the candidates below. Choose the best ones, at most {MAX_FINDINGS}: relevant to AI agents, genuinely new, "
-            f"not duplicates of each other (same page or same story), no marketing fluff. Fix course_topic if it is wrong. "
-            f"Write the summary yourself: 1-2 sentences in English, what it is and why it is interesting.\n"
+    return (f"You are the lead of {RADAR}.\n"
+            f"Search workers found the candidates below. Choose the best ones for the student, at most {MAX_FINDINGS}: useful for the course, really new, "
+            f"no duplicates (same page or same story), no marketing. Fix the topic if it is wrong. "
+            f"Write each summary yourself: 1-2 sentences, what it is and why it is interesting.\n"
             f'Return ONLY a JSON array (no prose, no markdown) of {{"title": str, "url": str, "kind": one of {list(KINDS)}, '
-            f'"summary": str, "course_topic": one topic from the list below}}. url must be one of the candidate urls exactly. '
+            f'"summary": str, "topic": one topic from the list below}}. url must be one of the candidate urls exactly. '
             f"Do not output a date: the program adds it.\n\nCourse topics:\n{TOPIC_LIST}")
 
 
 # ---- building blocks -------------------------------------------------------------------------------------
 QUERY_OPERATORS = re.compile(r"\b(?:after|before|site|filetype|inurl|intitle|intext|related):|\b(?:OR|AND|NOT)\b|[\"()]")
 
-def validate_plan(text, topics, per):
+def validate_plan(text, candidates, n, per):
     t = re.sub(r"^```(?:json)?\s*|\s*```$", "", (text or "").strip())
     try:
         data = json.loads(t)
@@ -204,9 +240,10 @@ def validate_plan(text, topics, per):
         raise ValueError(f"not JSON: {e}")
     if not isinstance(data, dict):
         raise ValueError("a JSON object {topic: [queries]} was expected")
+    if len(data) != n or any(t not in candidates for t in data):
+        raise ValueError(f"choose exactly {n} topics from {candidates}")
     plan = {}
-    for topic in topics:
-        queries = data.get(topic)
+    for topic, queries in data.items():
         if not isinstance(queries, list) or not queries or any(not isinstance(q, str) or not q.strip() for q in queries):
             raise ValueError(f"topic {topic!r}: a non-empty list of query strings is required")
         for q in queries:
@@ -255,13 +292,13 @@ def run_search(ctx, w, call):
     try:
         args = json.loads(call.function.arguments)
         query = args["query"]
-        topic = args.get("topic") if args.get("topic") in ("news", "general") else "news"
-        raw = ctx["tavily"].search(query=query, topic=topic, search_depth="basic", time_range=ctx["time_range"],
+        search_type = args.get("type") if args.get("type") in ("news", "general") else "news"
+        raw = ctx["tavily"].search(query=query, topic=search_type, search_depth="basic", time_range=ctx["time_range"],
                                    max_results=6, timeout=min(30, max(5, ctx["left"]())))
         items = [{"title": r.get("title"), "url": r.get("url"), "content": _short(r.get("content", ""), 500),
                   "date": normalize_date(r.get("published_date"), r.get("url"))} for r in raw.get("results", [])]
         w["found"].update({it["url"]: it for it in items if it["url"]})
-        log_trace("tool_call", role="worker", worker=w["topic"], tool="tavily_search", query=query, topic=topic,
+        log_trace("tool_call", role="worker", worker=w["topic"], tool="tavily_search", query=query, search_type=search_type,
                   n_results=len(items), n_dated=sum(1 for it in items if it["date"] != "unknown"),
                   urls=" ".join(it["url"] for it in items if it["url"]))
         return {"results": items}
@@ -302,16 +339,14 @@ def run_worker(ctx, topic, queries):
 
 # ---- the team --------------------------------------------------------------------------------------------
 def run_radar(topics=None, days=7, client=None, tavily=None, lead_model=None, worker_model=None):
-    """One radar run: the lead plans, one small worker per topic searches, the lead reviews.
-    Returns the new findings (at most MAX_FINDINGS); prints who did what."""
-    topics = list(topics or TOPICS)
-    bad = [t for t in topics if t not in TOPICS]
+    """One radar run: the lead picks topics (from `topics`, default all course topics) and plans, one small worker
+    per topic searches, the lead reviews. Returns the new findings (at most MAX_FINDINGS); prints who did what."""
+    candidates = list(topics or TOPICS)
+    bad = [t for t in candidates if t not in TOPICS]
     if bad:
         raise ValueError(f"unknown topics: {bad}")
-    if len(topics) > MAX_SEARCHES:
-        print(f"note: at most {MAX_SEARCHES} topics per run (one search each); using the first {MAX_SEARCHES}")
-        topics = topics[:MAX_SEARCHES]
-    per = min(SEARCHES_PER_WORKER, MAX_SEARCHES // len(topics))
+    n = min(TOPICS_PER_RUN, len(candidates))
+    per = min(SEARCHES_PER_WORKER, MAX_SEARCHES // n)
     started = time.monotonic()
     ctx = {"client": client or OpenAI(base_url=BASE_URL, api_key=os.environ["NEBIUS_API_KEY"], max_retries=2),
            "tavily": tavily or TavilyClient(api_key=os.environ["TAVILY_API_KEY"]),
@@ -319,14 +354,16 @@ def run_radar(topics=None, days=7, client=None, tavily=None, lead_model=None, wo
            "time_range": "day" if days <= 1 else "week" if days <= 7 else "month",
            "seen": load_seen(), "allowed": {}, "searches": 0, "calls": Counter(),
            "left": lambda: TIMEOUT_S - (time.monotonic() - started)}
-    log_trace("run_start", role="code", topics=", ".join(topics), lead_model=ctx["lead_model"], worker_model=ctx["worker_model"])
+    log_trace("run_start", role="code", candidates=", ".join(candidates), lead_model=ctx["lead_model"], worker_model=ctx["worker_model"])
 
-    # 1. the lead (smart model) plans the searches
-    messages = [{"role": "system", "content": plan_prompt(per, days)},
-                {"role": "user", "content": f"Topics: {json.dumps(topics)}. Today is {dt.date.today().isoformat()}."}]
+    # 1. the lead (smart model) picks the topics and plans the searches
+    messages = [{"role": "system", "content": plan_prompt(n, per, days)},
+                {"role": "user", "content": f"Candidate topics: {json.dumps(candidates)}. Today is {dt.date.today().isoformat()}."}]
     plan = answer_json(ctx, "lead", messages, model_call(ctx, "lead", messages).content,
-                       lambda t: validate_plan(t, topics, per))
+                       lambda t: validate_plan(t, candidates, n, per))
+    topics = list(plan)
     log_trace("plan", role="lead", plan=json.dumps(plan, ensure_ascii=False))
+    print(f"lead picked: {', '.join(topics)}")
 
     # 2. one small worker (sub-agent) per topic; a failing worker is skipped, the run goes on
     candidates, workers_run = [], 0
@@ -348,7 +385,7 @@ def run_radar(topics=None, days=7, client=None, tavily=None, lead_model=None, wo
     findings, dropped = [], []
     if candidates:
         allowed = {c["url"]: ctx["allowed"][c["url"]] for c in candidates}     # a finding must be one of the candidates
-        payload = [{k: c[k] for k in ("title", "url", "date", "kind", "summary", "course_topic")} for c in candidates]
+        payload = [{k: c[k] for k in ("title", "url", "date", "kind", "summary", "topic")} for c in candidates]
         messages = [{"role": "system", "content": review_prompt()},
                     {"role": "user", "content": json.dumps(payload, ensure_ascii=False)}]
         findings, dropped = answer_json(ctx, "lead", messages, model_call(ctx, "lead", messages).content,
@@ -359,7 +396,7 @@ def run_radar(topics=None, days=7, client=None, tavily=None, lead_model=None, wo
 
     seconds = round(time.monotonic() - started)
     print(f"searches: {ctx['searches']}/{MAX_SEARCHES}, time: {seconds} s, findings: {len(findings)}, dropped: {len(dropped)}")
-    print(f"lead   {ctx['lead_model']}: {ctx['calls']['lead']} calls (plan, review)")
+    print(f"lead   {ctx['lead_model']}: {ctx['calls']['lead']} calls (pick topics and plan, review)")
     print(f"worker {ctx['worker_model']}: {ctx['calls']['worker']} calls in {workers_run} sub-agents -> {len(candidates)} candidates")
     return findings
 
@@ -376,19 +413,19 @@ def check_model(client=None):
 
 # ---- report and traces (notebook helpers) ----------------------------------------------------------------
 def show_report(findings):
-    """A table of findings and a chart 'findings by course topic', drawn by fixed code."""
+    """A table of findings and a chart 'findings by topic', drawn by fixed code."""
     if not findings:
         print("No new findings.")
         return
     import pandas as pd
     import matplotlib.pyplot as plt
     from IPython.display import display, HTML
-    df = pd.DataFrame(findings)[["title", "kind", "course_topic", "date", "summary", "url"]]
+    df = pd.DataFrame(findings)[["title", "kind", "topic", "date", "summary", "url"]]
     display(HTML(df.to_html(index=False, escape=True, render_links=True)))
-    counts = df["course_topic"].value_counts().reindex(list(TOPICS), fill_value=0)
+    counts = df["topic"].value_counts().reindex(list(TOPICS), fill_value=0)
     counts = counts[counts > 0].sort_values()
     ax = counts.plot.barh(figsize=(7, max(2, 0.45 * len(counts) + 1)), color="#4C78A8")
-    ax.set_xlabel("findings"); ax.set_ylabel(""); ax.set_title("Findings by course topic")
+    ax.set_xlabel("findings"); ax.set_ylabel(""); ax.set_title("Findings by topic")
     ax.xaxis.set_major_locator(plt.MaxNLocator(integer=True))
     plt.tight_layout(); plt.show()
 

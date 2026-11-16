@@ -1,6 +1,7 @@
 PARTICIPANT GUIDE
 =================
-A team of AI agents (a smart "lead" model, small "worker" models) searches the web inside an OpenShell sandbox.
+Story: a student of CS 329Z: Engineering AI Agents wants to know what is new for the coming lectures. A smart "lead" model
+reads the course schedule and picks the topics, small "worker" models search the web; all inside an OpenShell sandbox.
 One notebook shows how the agent works and how OpenShell controls it (28 checks, audit log).
 
 You get from the instructor: the image address, NEBIUS_API_KEY, TAVILY_API_KEY.
