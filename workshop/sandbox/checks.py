@@ -26,15 +26,23 @@ def run_agent(topics=()):
     """The agent runs inside the sandbox with placeholders instead of keys; findings are copied out.
     topics: candidate course topics for the lead (default: all)."""
     rc, out = case.run_in("python", "/sandbox/app/main.py", *topics, timeout=600)
-    print("\n".join(out.splitlines()[-5:]))
+    print("\n".join(out.splitlines()[-6:]))
     rc2, raw = case.run_in("cat", "/sandbox/runs/findings.json")
     findings = json.loads(raw) if rc2 == 0 else []
     target = CASE / "findings.json"
     target.write_text(json.dumps(findings, ensure_ascii=False, indent=1))
+    rc3, text = case.run_in("cat", "/sandbox/runs/digest.md")
+    (CASE / "digest.md").write_text(text if rc3 == 0 else "")
     for f in findings:
         print(f"  {f['date']:11} [{f['topic']}] ({f['kind']}) {f['title'][:78]}\n              {f['url'][:100]}")
     print(f"saved: {target}  ({len(findings)} findings)")
     return findings
+
+
+def digest():
+    """The lead's digest of the last run (saved by run_agent)."""
+    path = CASE / "digest.md"
+    return path.read_text().strip() if path.exists() else ""
 
 
 def show_agent_work():

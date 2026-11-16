@@ -9,7 +9,7 @@ Built for a workshop on Nebius Devlabs (JupyterLab + OpenShell).
 
 | Agent role | Default model | Does |
 |---|---|---|
-| lead | `moonshotai/Kimi-K3` | picks 3 course topics from the schedule, plans the searches, reviews the candidates |
+| lead | `moonshotai/Kimi-K3` | picks 3 course topics from the schedule and plans; reflects and adds follow-up searches; reviews, links items to lectures, writes a digest |
 | workers, one per topic | `Qwen/Qwen3-30B-A3B-Instruct-2507` | run the Tavily searches, collect candidates |
 
 | OpenShell layer | Guarantee |

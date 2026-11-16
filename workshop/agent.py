@@ -1,6 +1,6 @@
 """Agent radar: a small team of two LLMs that finds what is new for a student of CS 329Z: Engineering AI Agents.
 
-    lead    the smart model: picks the course topics to check, plans the searches, reviews the candidates
+    lead    the smart model: picks the topics and plans; reflects and adds follow-up searches; reviews, writes a digest
     workers the small model, one sub-agent per topic: runs the planned Tavily searches
     code    dates, URL checks, memory, report: fixed code, never a model
 
@@ -18,15 +18,17 @@ from tavily import TavilyClient
 
 # ---- settings ----------------------------------------------------------------------------------------------
 BASE_URL = "https://api.tokenfactory.nebius.com/v1/"
-LEAD_MODEL   = os.environ.get("LEAD_MODEL", "moonshotai/Kimi-K3")                  # smart: plan and review
+LEAD_MODEL   = os.environ.get("LEAD_MODEL", "moonshotai/Kimi-K3")                  # smart: plan, reflect, review
 WORKER_MODEL = os.environ.get("WORKER_MODEL", "Qwen/Qwen3-30B-A3B-Instruct-2507")  # small: search sub-agents
 
 TOPICS_PER_RUN        = 3     # the lead picks this many course topics per run
-MAX_SEARCHES          = 6     # search calls per run, all workers together
-SEARCHES_PER_WORKER   = 3     # upper limit for one worker (the real limit is MAX_SEARCHES // TOPICS_PER_RUN)
+PLAN_SEARCHES         = 6     # first round: searches of the lead's plan, all workers together
+FOLLOWUP_SEARCHES     = 3     # second round: follow-up searches the lead may add after reflection
+MAX_SEARCHES          = PLAN_SEARCHES + FOLLOWUP_SEARCHES
+SEARCHES_PER_WORKER   = 3     # upper limit for one worker (the real limit is PLAN_SEARCHES // TOPICS_PER_RUN)
 CANDIDATES_PER_WORKER = 4     # candidates one worker may hand to the lead
 MAX_FINDINGS          = 8     # findings in the report
-TIMEOUT_S             = 120   # total time budget of one run, seconds
+TIMEOUT_S             = 180   # total time budget of one run, seconds
 LEAD_RESERVE_S        = 30    # kept for the lead's final review: workers stop earlier when time is short
 CALL_TIMEOUT_S        = 60    # one model request; the client retries a dropped or timed-out request twice (max_retries)
 MAX_QUERY_WORDS       = 10    # a search query is plain words; long queries with operators return few or no results
@@ -36,6 +38,7 @@ KEY_NAMES = ("NEBIUS_API_KEY", "TAVILY_API_KEY")
 WORK = Path(os.environ.get("RADAR_WORK", "/workspace/radar"))
 SEEN_FILE   = WORK / "seen_urls.json"
 TRACES_FILE = WORK / "traces.jsonl"
+DIGEST_FILE = WORK / "digest.md"
 
 KINDS = ("paper", "project", "release", "post")
 
@@ -161,18 +164,21 @@ def normalize_date(published, url):
     return "unknown"
 
 
-def parse_findings(text, allowed_urls, seen):
-    """Parse a model's answer. Format errors -> ValueError. Invented and already shown URLs are dropped.
-    allowed_urls maps url -> search result; the finding's date comes from that result."""
-    t = (text or "").strip()
-    t = re.sub(r"^```(?:json)?\s*|\s*```$", "", t)          # in case of a markdown wrapper
+def parse_json(text):
+    t = re.sub(r"^```(?:json)?\s*|\s*```$", "", (text or "").strip())    # in case of a markdown wrapper
     try:
-        data = json.loads(t)
+        return json.loads(t)
     except json.JSONDecodeError as e:
         raise ValueError(f"not JSON: {e}")
+
+
+def parse_findings(text, allowed_urls, seen, extra=()):
+    """Parse a model's answer. Format errors -> ValueError. Invented and already shown URLs are dropped.
+    allowed_urls maps url -> search result; the finding's date comes from that result."""
+    data = parse_json(text) if isinstance(text, str) or text is None else text
     if not isinstance(data, list):
         raise ValueError("a JSON array was expected")
-    required = ("title", "url", "kind", "summary", "topic")
+    required = ("title", "url", "kind", "summary", "topic") + tuple(extra)
     out, dropped = [], []
     for i, item in enumerate(data):
         if not isinstance(item, dict) or any(not isinstance(item.get(k), str) or not item[k].strip() for k in required):
@@ -219,30 +225,39 @@ def worker_prompt(topic, per):
             f"Use only the search results: never invent links or facts; url must match a result url exactly.\n\n"
             f"Course topics:\n{TOPIC_LIST}")
 
+def reflect_prompt(days):
+    return (f"You are the lead of {RADAR}.\n"
+            f"The workers ran your plan. The user message shows, per chosen topic, the queries they ran and the candidates they found. "
+            f"Judge the coverage: is there enough good, new material (last {days} days) for each topic? A topic needs more search if it "
+            f"has no candidates or only weak ones (off-topic, old, marketing, duplicates).\n"
+            f"For such topics write better follow-up queries (other wording or angle than before), at most {FOLLOWUP_SEARCHES} queries "
+            f"in total; plain words, 3 to {MAX_QUERY_WORDS} words, no quotes, parentheses, OR / AND, operators or dates.\n"
+            f'Return ONLY a JSON object (no prose, no markdown): {{"<topic>": ["query", ...]}} with only the topics that need more search, '
+            f"or {{}} if the coverage is good enough.")
+
 def review_prompt():
     return (f"You are the lead of {RADAR}.\n"
-            f"Search workers found the candidates below. Choose the best ones for the student, at most {MAX_FINDINGS}: useful for the course, really new, "
-            f"no duplicates (same page or same story), no marketing. Fix the topic if it is wrong. "
-            f"Write each summary yourself: 1-2 sentences, what it is and why it is interesting.\n"
-            f'Return ONLY a JSON array (no prose, no markdown) of {{"title": str, "url": str, "kind": one of {list(KINDS)}, '
-            f'"summary": str, "topic": one topic from the list below}}. url must be one of the candidate urls exactly. '
-            f"Do not output a date: the program adds it.\n\nCourse topics:\n{TOPIC_LIST}")
+            f"About the course: {COURSE_INFO}\nCourse schedule:\n{SCHEDULE}\n"
+            f"Search workers found the candidates in the user message. Choose the best ones for the student, at most {MAX_FINDINGS}: "
+            f"useful for the course, really new, no duplicates (same page or same story), no marketing. Fix the topic if it is wrong. "
+            f"Write each summary yourself: 1-2 sentences, what it is and why it is interesting. For each item name the lecture it helps "
+            f"with: the next lecture on its topic (date and title from the schedule), or the past one it extends.\n"
+            f"Then write a digest for the student: 3-4 sentences, what is new this week and what to read before the coming lectures.\n"
+            f'Return ONLY a JSON object (no prose, no markdown): {{"digest": str, "findings": [{{"title": str, "url": str, '
+            f'"kind": one of {list(KINDS)}, "summary": str, "topic": one topic from the list below, "lecture": str}}]}}. '
+            f"url must be one of the candidate urls exactly. Do not output a date: the program adds it.\n\nCourse topics:\n{TOPIC_LIST}")
 
 
 # ---- building blocks -------------------------------------------------------------------------------------
 QUERY_OPERATORS = re.compile(r"\b(?:after|before|site|filetype|inurl|intitle|intext|related):|\b(?:OR|AND|NOT)\b|[\"()]")
 
-def validate_plan(text, candidates, n, per):
-    t = re.sub(r"^```(?:json)?\s*|\s*```$", "", (text or "").strip())
-    try:
-        data = json.loads(t)
-    except json.JSONDecodeError as e:
-        raise ValueError(f"not JSON: {e}")
+def validate_queries(text, topics):
+    """A JSON object {topic: [plain-word queries]} with keys from `topics`."""
+    data = parse_json(text)
     if not isinstance(data, dict):
         raise ValueError("a JSON object {topic: [queries]} was expected")
-    if len(data) != n or any(t not in candidates for t in data):
-        raise ValueError(f"choose exactly {n} topics from {candidates}")
-    plan = {}
+    if any(t not in topics for t in data):
+        raise ValueError(f"topics must be from {list(topics)}")
     for topic, queries in data.items():
         if not isinstance(queries, list) or not queries or any(not isinstance(q, str) or not q.strip() for q in queries):
             raise ValueError(f"topic {topic!r}: a non-empty list of query strings is required")
@@ -250,8 +265,33 @@ def validate_plan(text, candidates, n, per):
             if QUERY_OPERATORS.search(q) or len(q.split()) > MAX_QUERY_WORDS:
                 raise ValueError(f"topic {topic!r}: query {q!r} must be plain words (no quotes, parentheses, OR/AND, "
                                  f"after:/before:/site: operators, no dates), at most {MAX_QUERY_WORDS} words")
-        plan[topic] = [q.strip() for q in queries][:per]
-    return plan
+    return {topic: [q.strip() for q in queries] for topic, queries in data.items()}
+
+
+def validate_plan(text, candidates, n, per):
+    plan = validate_queries(text, candidates)
+    if len(plan) != n:
+        raise ValueError(f"choose exactly {n} topics from {candidates}")
+    return {topic: queries[:per] for topic, queries in plan.items()}
+
+
+def validate_followup(text, topics):
+    """{} or {topic: [queries]}, at most FOLLOWUP_SEARCHES queries in total."""
+    out, left = {}, FOLLOWUP_SEARCHES
+    for topic, queries in validate_queries(text, topics).items():
+        if left > 0:
+            out[topic] = queries[:left]
+            left -= len(out[topic])
+    return out
+
+
+def validate_review(text, allowed_urls, seen):
+    """{"digest": str, "findings": [...]} -> (findings, dropped, digest)."""
+    data = parse_json(text)
+    if not isinstance(data, dict) or not isinstance(data.get("digest"), str) or not data["digest"].strip():
+        raise ValueError('a JSON object {"digest": str, "findings": [...]} was expected')
+    findings, dropped = parse_findings(data.get("findings"), allowed_urls, seen, extra=("lecture",))
+    return findings, dropped, data["digest"].strip()
 
 
 def model_call(ctx, role, messages, tools=None):
@@ -339,14 +379,15 @@ def run_worker(ctx, topic, queries):
 
 # ---- the team --------------------------------------------------------------------------------------------
 def run_radar(topics=None, days=7, client=None, tavily=None, lead_model=None, worker_model=None):
-    """One radar run: the lead picks topics (from `topics`, default all course topics) and plans, one small worker
-    per topic searches, the lead reviews. Returns the new findings (at most MAX_FINDINGS); prints who did what."""
+    """One radar run: the lead picks topics (from `topics`, default all) and plans; one small worker per topic searches;
+    the lead reflects and may add a second round; the lead reviews and writes a digest (DIGEST_FILE).
+    Returns the new findings (at most MAX_FINDINGS); prints who did what."""
     candidates = list(topics or TOPICS)
     bad = [t for t in candidates if t not in TOPICS]
     if bad:
         raise ValueError(f"unknown topics: {bad}")
     n = min(TOPICS_PER_RUN, len(candidates))
-    per = min(SEARCHES_PER_WORKER, MAX_SEARCHES // n)
+    per = min(SEARCHES_PER_WORKER, PLAN_SEARCHES // n)
     started = time.monotonic()
     ctx = {"client": client or OpenAI(base_url=BASE_URL, api_key=os.environ["NEBIUS_API_KEY"], max_retries=2),
            "tavily": tavily or TavilyClient(api_key=os.environ["TAVILY_API_KEY"]),
@@ -366,37 +407,63 @@ def run_radar(topics=None, days=7, client=None, tavily=None, lead_model=None, wo
     print(f"lead picked: {', '.join(topics)}")
 
     # 2. one small worker (sub-agent) per topic; a failing worker is skipped, the run goes on
-    candidates, workers_run = [], 0
-    for topic in topics:
-        if ctx["left"]() < LEAD_RESERVE_S + 10 or ctx["searches"] >= MAX_SEARCHES:
-            log_trace("worker_skipped", role="code", worker=topic, reason="time or search budget")
-            continue
-        workers_run += 1
+    by_topic, workers_run = {}, 0
+
+    def run_round(queries_by_topic):
+        nonlocal workers_run
+        for topic, queries in queries_by_topic.items():
+            if ctx["left"]() < LEAD_RESERVE_S + 10 or ctx["searches"] >= MAX_SEARCHES:
+                log_trace("worker_skipped", role="code", worker=topic, reason="time or search budget")
+                continue
+            workers_run += 1
+            entry = by_topic.setdefault(topic, {"queries": [], "candidates": []})
+            entry["queries"] += queries
+            try:
+                entry["candidates"] += run_worker(ctx, topic, queries)
+            except (ValueError, APIError) as err:            # invalid JSON twice, or the model API failed after its retries
+                log_trace("worker_failed", role="worker", worker=topic, error=f"{type(err).__name__}: {err}")
+
+    run_round(plan)
+
+    # 3. the lead reflects on the coverage and may add follow-up searches (second round)
+    followup = {}
+    if ctx["left"]() >= LEAD_RESERVE_S + 30:
+        report = {t: {"queries": e["queries"], "candidates": [{k: c[k] for k in ("title", "url", "summary")} for c in e["candidates"]]}
+                  for t, e in by_topic.items()}
+        messages = [{"role": "system", "content": reflect_prompt(days)},
+                    {"role": "user", "content": json.dumps(report, ensure_ascii=False)}]
         try:
-            candidates += run_worker(ctx, topic, plan[topic])
-        except (ValueError, APIError) as err:                # invalid JSON twice, or the model API failed after its retries
-            log_trace("worker_failed", role="worker", worker=topic, error=f"{type(err).__name__}: {err}")
+            followup = answer_json(ctx, "lead", messages, model_call(ctx, "lead", messages).content,
+                                   lambda t: validate_followup(t, topics))
+        except (ValueError, APIError) as err:
+            log_trace("reflect_failed", role="lead", error=f"{type(err).__name__}: {err}")
+        log_trace("reflect", role="lead", followup=json.dumps(followup, ensure_ascii=False))
+        print("lead follow-up: " + ("; ".join(f"{t}: {', '.join(q)}" for t, q in followup.items()) or "none, the coverage is good"))
+        run_round(followup)
+
     unique = {}
-    for c in candidates:
+    for c in (c for e in by_topic.values() for c in e["candidates"]):
         unique.setdefault(canon(c["url"]), c)               # the same page found by two workers counts once
     candidates = list(unique.values())
 
-    # 3. the lead (smart model) reviews the candidates and makes the final decisions
-    findings, dropped = [], []
+    # 4. the lead reviews the candidates, links them to lectures and writes a digest
+    findings, dropped, digest = [], [], "No new items this week."
     if candidates:
         allowed = {c["url"]: ctx["allowed"][c["url"]] for c in candidates}     # a finding must be one of the candidates
         payload = [{k: c[k] for k in ("title", "url", "date", "kind", "summary", "topic")} for c in candidates]
         messages = [{"role": "system", "content": review_prompt()},
-                    {"role": "user", "content": json.dumps(payload, ensure_ascii=False)}]
-        findings, dropped = answer_json(ctx, "lead", messages, model_call(ctx, "lead", messages).content,
-                                        lambda t: parse_findings(t, allowed, ctx["seen"]))
+                    {"role": "user", "content": f"Today is {dt.date.today().isoformat()}. Candidates: " + json.dumps(payload, ensure_ascii=False)}]
+        findings, dropped, digest = answer_json(ctx, "lead", messages, model_call(ctx, "lead", messages).content,
+                                                lambda t: validate_review(t, allowed, ctx["seen"]))
     for url, why in dropped:
         log_trace("dropped", role="code", url=url, reason=why)
     save_seen(ctx["seen"] | {canon(f["url"]) for f in findings})
+    DIGEST_FILE.write_text(digest + "\n")
+    log_trace("digest", role="lead", digest=digest)
 
     seconds = round(time.monotonic() - started)
     print(f"searches: {ctx['searches']}/{MAX_SEARCHES}, time: {seconds} s, findings: {len(findings)}, dropped: {len(dropped)}")
-    print(f"lead   {ctx['lead_model']}: {ctx['calls']['lead']} calls (pick topics and plan, review)")
+    print(f"lead   {ctx['lead_model']}: {ctx['calls']['lead']} calls (plan, reflect, review)")
     print(f"worker {ctx['worker_model']}: {ctx['calls']['worker']} calls in {workers_run} sub-agents -> {len(candidates)} candidates")
     return findings
 
@@ -412,15 +479,17 @@ def check_model(client=None):
 
 
 # ---- report and traces (notebook helpers) ----------------------------------------------------------------
-def show_report(findings):
-    """A table of findings and a chart 'findings by topic', drawn by fixed code."""
+def show_report(findings, digest=""):
+    """The lead's digest, a table of findings and a chart 'findings by topic' (table and chart drawn by fixed code)."""
+    from IPython.display import display, HTML, Markdown
+    if digest:
+        display(Markdown("**Digest from the lead:** " + digest))
     if not findings:
         print("No new findings.")
         return
     import pandas as pd
     import matplotlib.pyplot as plt
-    from IPython.display import display, HTML
-    df = pd.DataFrame(findings)[["title", "kind", "topic", "date", "summary", "url"]]
+    df = pd.DataFrame(findings).reindex(columns=["title", "kind", "topic", "lecture", "date", "summary", "url"])
     display(HTML(df.to_html(index=False, escape=True, render_links=True)))
     counts = df["topic"].value_counts().reindex(list(TOPICS), fill_value=0)
     counts = counts[counts > 0].sort_values()
