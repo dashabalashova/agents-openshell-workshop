@@ -18,9 +18,8 @@ from tavily import TavilyClient
 
 # ---- settings ----------------------------------------------------------------------------------------------
 BASE_URL = "https://api.tokenfactory.nebius.com/v1/"
-LEAD_MODEL   = os.environ.get("LEAD_MODEL", "moonshotai/Kimi-K3")   # the smart model: planning and final decisions
-WORKER_MODEL = os.environ.get("WORKER_MODEL", "Qwen/Qwen3-30B-A3B-Instruct-2507")                     # the small model: simple sub-agents
-# any pair of models with function calling works (check_model lists them)
+LEAD_MODEL   = os.environ.get("LEAD_MODEL", "moonshotai/Kimi-K3")                  # smart: plan and review
+WORKER_MODEL = os.environ.get("WORKER_MODEL", "Qwen/Qwen3-30B-A3B-Instruct-2507")  # small: search sub-agents
 
 MAX_SEARCHES          = 6     # search calls per run, all workers together
 SEARCHES_PER_WORKER   = 3     # upper limit for one worker (the real limit is MAX_SEARCHES // number of topics)

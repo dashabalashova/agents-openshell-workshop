@@ -1,17 +1,7 @@
-# secrets and local settings: never commit
-.env
+# secrets
 config.env
-keys.txt
-*.pem
-
+handout.txt
 # generated
 .venv-tools/
 .ipynb_checkpoints/
 __pycache__/
-*.pyc
-findings.json
-traces.jsonl
-seen_urls.json
-
-# values for the participants (secrets)
-handout.txt

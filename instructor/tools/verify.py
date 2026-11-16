@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check a Devlab the way a participant uses it (called by 3-load-and-run.sh).
+"""Check a Devlab the way a participant uses it (called by 3-check-devlab.sh).
     JUPYTER_TOKEN=... python verify.py <devlab url> <github owner/repo> <notebook>
 Exit code 0 only if all checks pass. The token is read from the environment, never printed."""
 import ast, json, os, re, sys, time, urllib.error, urllib.request, uuid

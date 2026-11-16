@@ -1,13 +1,12 @@
 #!/usr/bin/env bash
-# Step 1: temporary VM -> Devlab image -> smoke test -> registry -> push (tags: date and latest) -> VM deleted. ~10 min; prints the image address.
-# ./1-build-image.sh [--delete: remove registry and leftover VM]   Settings: config.env. DRY_RUN=1 only checks, KEEP_VM=1 keeps the VM.
+# Step 1: temp VM -> Devlab image -> smoke test -> registry (tags :latest and date) -> VM deleted. ~10 min.
+# ./1-build-image.sh [--delete]   (--delete removes the registry and a leftover VM). DRY_RUN=1 only checks; KEEP_VM=1 keeps the VM.
 set -euo pipefail
 cd "$(dirname "$0")"
 [ -f config.env ] && source config.env
 : "${PROJECT_ID:=$(nebius config get parent-id 2>/dev/null || true)}"
 : "${REGION:=eu-west2}" "${REGISTRY_NAME:=openshell-devlab}" "${IMAGE_NAME:=openshell-devlab}" "${VM_NAME:=openshell-build-vm}"
 : "${VM_IMAGE_FAMILY:=ubuntu24.04-driverless}" "${VM_PLATFORM:=cpu-d3}" "${VM_PRESET:=4vcpu-16gb}" "${VM_DISK_GIB:=100}"
-: "${DEVLAB_PLATFORM:=cpu-d3}" "${DEVLAB_PRESET:=4vcpu-16gb}" "${DEVLAB_DISK:=100Gi}"
 : "${IMAGE_SRC:=tools/devlab-image}" "${SSH_KEY:=$HOME/.ssh/id_ed25519.pub}" "${TAG:=$(date +%Y%m%d-%H%M%S)}"
 : "${CR:=cr.$REGION.nebius.cloud}"
 
@@ -115,14 +114,4 @@ nebius iam get-access-token | "${SSH[@]}" "ubuntu@$IP" "sudo docker login $CR --
 nebius registry image list --parent-id "$reg" --format json | jq -e '[.items[]? | select((.tags // []) | index("latest"))] | length > 0' >/dev/null || die "the image is not in the registry"
 delete_vm; trap - EXIT
 
-cat <<EOF
-
-Image ready: $LATEST  (also $IMAGE)
-
-For the participants (Devlab creation form in the console):
-  Image     $LATEST
-  Port      8888 (HTTP)      Workspace path  /workspace      Public IP  yes
-  Machine   $DEVLAB_PLATFORM $DEVLAB_PRESET      Disk  $DEVLAB_DISK
-  Variables JUPYTER_TOKEN (their own, 16+ characters), NEBIUS_API_KEY, TAVILY_API_KEY      (../workshop/participant.txt)
-Your own Devlab:  ./2a-create-devlab-cli.sh   (participants: ../workshop/participant.txt, step 2b)
-EOF
+printf '\nImage ready: %s\n(also %s; put the first one in handout.txt)\nNext: ./2-create-devlab.sh\n' "$LATEST" "$IMAGE"

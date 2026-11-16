@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Step 3: load the code from GitHub into a Devlab, run the notebook there, check the result (what a participant does by hand).
-# ./3-load-and-run.sh [devlab url]   (no argument: the Devlab DEVLAB_NAME). Needs python3; a venv is created in tools/.venv-tools.
+# Step 3: do what a participant does (load the code from GitHub, run the notebook) through the Jupyter API and check 10 results. ~2 min.
+# ./3-check-devlab.sh [devlab url]   (default: the Devlab DEVLAB_NAME). Needs python3.
 set -euo pipefail
 cd "$(dirname "$0")"
 token=${JUPYTER_TOKEN:-}; [ -f config.env ] && source config.env; [ -z "$token" ] || JUPYTER_TOKEN=$token

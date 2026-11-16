@@ -37,8 +37,7 @@ def run_agent(topics=("memory", "evaluation", "coding agents")):
 
 
 def show_agent_work():
-    """How the agent worked inside the sandbox: who made the model calls (lead = the smart model, worker = the small one),
-    how many searches ran, and the latest events of the trace file the agent wrote in /sandbox/runs."""
+    """Model calls per role, searches and the latest trace events of the run in the sandbox."""
     rc, raw = case.run_in("cat", "/sandbox/runs/traces.jsonl")
     path = CASE / "traces.jsonl"
     path.write_text(raw if rc == 0 else "")
@@ -94,7 +93,7 @@ def run_checks(findings):
 
 
 def audit():
-    """Sandbox logs reach the gateway with a short delay, so this polls (up to ~30 s) until the denials are visible."""
+    """The audit log (polls up to ~30 s: logs reach the gateway with a delay) and the effective policy."""
     log = ""
     for _ in range(10):
         log = case.clean(subprocess.run(f"openshell logs {case.SANDBOX} --since 15m --source sandbox -n 600", shell=True, capture_output=True, text=True).stdout)

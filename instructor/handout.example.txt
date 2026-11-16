@@ -1,9 +1,7 @@
-WORKSHOP VALUES (send privately; follow workshop/participant.txt)
+WORKSHOP VALUES (private; guide: workshop/participant.txt in the repo)
 
-Image address:   cr.eu-west2.nebius.cloud/<registry-id>/openshell-devlab:<tag>      (printed by ./1-build-image.sh)
-NEBIUS_API_KEY:  <workshop Token Factory key>
-TAVILY_API_KEY:  tvly-<workshop Tavily key>
-Code:            https://github.com/dashabalashova/agents-openshell-workshop
-Guide:           workshop/participant.txt in that repo
-
-JUPYTER_TOKEN: do not ask for one, make up your own (16+ random characters, e.g. openssl rand -hex 16).
+Image:           cr.eu-west2.nebius.cloud/<registry-id>/openshell-devlab:latest
+NEBIUS_API_KEY:  <workshop key>
+TAVILY_API_KEY:  <workshop key>
+Repo:            https://github.com/dashabalashova/agents-openshell-workshop
+JUPYTER_TOKEN:   make up your own (16+ random characters: openssl rand -hex 16)

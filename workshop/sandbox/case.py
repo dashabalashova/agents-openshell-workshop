@@ -6,7 +6,7 @@ import os, re, shlex, shutil, subprocess, tempfile, time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-AGENT = HERE.parent / "agent.py"             
+AGENT = HERE.parent / "agent.py"
 SANDBOX = "radar-case"
 IMAGE = "radar-sandbox:local"
 KEYS = ("NEBIUS_API_KEY", "TAVILY_API_KEY")

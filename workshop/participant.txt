@@ -1,30 +1,29 @@
 PARTICIPANT GUIDE
 =================
-You run a small team of AI agents in an OpenShell sandbox: a smart "lead" model plans, small "worker" models search the web.
+A team of AI agents (a smart "lead" model, small "worker" models) searches the web inside an OpenShell sandbox.
 One notebook shows how the agent works and how OpenShell controls it (28 checks, audit log).
 
-VALUES
-  image address, NEBIUS_API_KEY, TAVILY_API_KEY   from the instructor (workshop keys, privately)
-  JUPYTER_TOKEN   the password of your Devlab: make up 16+ random characters (openssl rand -hex 16) and write it down
+You get from the instructor: the image address, NEBIUS_API_KEY, TAVILY_API_KEY.
+You make up yourself: JUPYTER_TOKEN, the password of your Devlab (16+ random characters: openssl rand -hex 16). Write it down.
 
-1. CREATE YOUR DEVLAB  (console -> Serverless AI -> Devlabs -> Create; field names may differ a little)
-     Image: the address above   Port (HTTP): 8888   Workspace path: /workspace   Machine: cpu-d3 4vcpu-16gb, 100 GiB   Public IP: yes
-     Variables: JUPYTER_TOKEN, NEBIUS_API_KEY, TAVILY_API_KEY  (secret-type if offered; keys go only here, never into a notebook, file or chat)
+1. CREATE A DEVLAB   console -> Serverless AI -> Devlabs -> Create (field names may differ a little)
+     Image: the address   Port (HTTP): 8888   Workspace path: /workspace   Machine: cpu-d3 4vcpu-16gb, 100 GiB   Public IP: yes
+     Variables: JUPYTER_TOKEN, NEBIUS_API_KEY, TAVILY_API_KEY (secret-type if offered; never put keys in a notebook, file or chat)
    Wait for RUNNING (3-4 min), open the URL, enter your token.
 
 2. LOAD THE CODE   File -> New -> Terminal:
      cd /workspace && curl -fsSL https://github.com/dashabalashova/agents-openshell-workshop/archive/refs/heads/main.tar.gz | tar xz --strip-components=2 --wildcards '*/workshop/*'
 
-3. RUN   Open radar-openshell.ipynb -> Run All Cells (1-3 min; the first run builds the sandbox image).
-   Success: the last line says "TOTAL: 28/28 checks passed". Read: 5a findings | 5b who did what | 5c checks | 6 audit log (DENIED lines).
+3. RUN   radar-openshell.ipynb -> Run All Cells (1-3 min). Success: "TOTAL: 28/28 checks passed".
+   Read: 5a findings | 5b who did what | 5c checks | 6 audit log.
 
-4. TRY   Edit sandbox/policy.yaml, run case.up() (section 4), re-run from section 5: which check fails, which DENIED line disappears?
+4. TRY   Edit sandbox/policy.yaml, run case.up() (section 4), re-run from section 5. Which check fails?
 
-5. FINISH   Run the last cell (case.down()), delete your Devlab. Never share your token.
+5. FINISH   Run case.down() (last cell), delete your Devlab.
 
 PROBLEMS
-  "keys not set"            a variable is missing or misspelled in the Devlab settings
-  model timeout             run the cell again
-  "sandbox was not created" run the last cell (case.down()), then section 4 again
-  image does not start      tell the instructor
-  broke a file              repeat step 2 (copy sandbox/policy.yaml first to keep it)
+  "keys not set"             a variable is missing or misspelled in the Devlab settings
+  model timeout              run the cell again
+  "sandbox was not created"  run case.down(), then section 4 again
+  broke a file               repeat step 2 (copy sandbox/policy.yaml first to keep it)
+  anything else              ask the instructor
