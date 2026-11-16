@@ -12,3 +12,6 @@ __pycache__/
 findings.json
 traces.jsonl
 seen_urls.json
+
+# values for the participants (secrets)
+handout.txt
