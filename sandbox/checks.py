@@ -11,7 +11,6 @@ REACHED means it went through.
 """
 import json, os, re, subprocess, sys, time
 from collections import Counter
-from pathlib import Path
 
 import case
 sys.path.insert(0, str(case.HERE.parent))        # agent.py lives next to the sandbox folder

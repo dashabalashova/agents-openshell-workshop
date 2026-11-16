@@ -19,7 +19,7 @@ from tavily import TavilyClient
 
 # ---- settings ----------------------------------------------------------------------------------------------
 BASE_URL = "https://api.tokenfactory.nebius.com/v1/"
-LEAD_MODEL   = os.environ.get("LEAD_MODEL", os.environ.get("MODEL", "moonshotai/Kimi-K3"))   # the smart model: planning and final decisions
+LEAD_MODEL   = os.environ.get("LEAD_MODEL", "moonshotai/Kimi-K3")   # the smart model: planning and final decisions
 # (moonshotai/Kimi-K3.1-Pro is smarter but answers in 15-30 s, and such long requests are sometimes cut on the way through the sandbox proxy)
 WORKER_MODEL = os.environ.get("WORKER_MODEL", "Qwen/Qwen3-30B-A3B-Instruct-2507")                     # the small model: simple sub-agents
 # both are checked against GET /v1/models (check_model); any pair of models with function calling works
@@ -329,12 +329,9 @@ def run_worker(ctx, topic, queries):
 
 
 # ---- the team --------------------------------------------------------------------------------------------
-LAST_RUN = {}
-
 def run_radar(topics=None, days=7, client=None, tavily=None, lead_model=None, worker_model=None):
     """One radar run: the lead plans, one small worker per topic searches, the lead reviews.
-    Returns the new findings (at most MAX_FINDINGS); LAST_RUN keeps the statistics of the run."""
-    global LAST_RUN
+    Returns the new findings (at most MAX_FINDINGS); prints who did what."""
     topics = list(topics or TOPICS)
     bad = [t for t in topics if t not in TOPICS]
     if bad:
@@ -388,11 +385,8 @@ def run_radar(topics=None, days=7, client=None, tavily=None, lead_model=None, wo
         log_trace("dropped", role="code", url=url, reason=why)
     save_seen(ctx["seen"] | {canon(f["url"]) for f in findings})
 
-    LAST_RUN = {"lead_model": ctx["lead_model"], "worker_model": ctx["worker_model"],
-                "lead_calls": ctx["calls"]["lead"], "worker_calls": ctx["calls"]["worker"], "workers": workers_run,
-                "searches": ctx["searches"], "candidates": len(candidates), "findings": len(findings),
-                "dropped": len(dropped), "seconds": round(time.monotonic() - started)}
-    print(f"searches: {ctx['searches']}/{MAX_SEARCHES}, time: {LAST_RUN['seconds']} s, findings: {len(findings)}, dropped: {len(dropped)}")
+    seconds = round(time.monotonic() - started)
+    print(f"searches: {ctx['searches']}/{MAX_SEARCHES}, time: {seconds} s, findings: {len(findings)}, dropped: {len(dropped)}")
     print(f"lead   {ctx['lead_model']}: {ctx['calls']['lead']} calls (plan, review)")
     print(f"worker {ctx['worker_model']}: {ctx['calls']['worker']} calls in {workers_run} sub-agents -> {len(candidates)} candidates")
     return findings

@@ -36,6 +36,7 @@ The notebook runs 28 checks (PASS/FAIL table at the end) and shows the audit log
 
 | File | What it is |
 |---|---|
+| `participant.txt` | the handout for participants: create the Devlab in the console, load these files, run the notebook |
 | `radar-openshell.ipynb` | the scenario: runs the agent in the sandbox, shows the results, who did what, the checks and the audit log |
 | `agent.py` | the whole agent; used by the notebook and copied into the sandbox image |
 | `sandbox/case.py` | prepared setup: `up()` / `down()` (providers, sandbox image, sandbox) |
@@ -63,7 +64,7 @@ You need a Devlab with JupyterLab, Docker and an OpenShell gateway named `devlab
 
 ## Status
 
-- The agent was tested with stub model and search clients (53 checks: division of labour between the two models, search budget, plain-word queries, invalid JSON, API failures, invented links, memory, dates); the layout of the repo is checked too (79 checks in total).
+- The agent was tested with stub model and search clients (52 checks: division of labour between the two models, search budget, plain-word queries, invalid JSON, API failures, invented links, memory, dates); the layout of the repo is checked too (78 checks in total).
 - The notebook ran three times in a row in a freshly created Devlab (JupyterLab + OpenShell v0.1.1): 28 of 28 OpenShell checks each time, 7-8 findings, 65-86 s; the lead made 2 model calls, the workers 6 (3 sub-agents).
 - The default lead is the fast `moonshotai/Kimi-K3`. `moonshotai/Kimi-K3.1-Pro` is smarter but answers in 15-30 s, and such long requests were sometimes cut on the way through the sandbox proxy.
 - Not verified: the quality of the findings (summaries come from search snippets), whether the small model saves money (no prices measured), many participants at once.

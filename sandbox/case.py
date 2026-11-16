@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
 """Prepared setup of the radar-openshell case: providers, sandbox image, policy and the sandbox itself.
 
-    python case.py up      (re)create everything from the files in this folder; idempotent
-    python case.py down    delete the sandbox, the providers and their profiles
-    python case.py status  show what exists
+    up()    (re)create everything from the files in this folder; idempotent
+    down()  delete the sandbox, the providers and their profiles
 
 Files used: policy.yaml, profiles/*.yaml, Dockerfile, app/main.py, app/probe.py and ../agent.py (the radar agent,
 copied into the image as it is). The real keys are read from the environment (or /workspace/.env) and handed to
 the OpenShell gateway as provider credentials (--credential NAME, no value on any command line); the sandbox
 only gets placeholders. The notebook radar-openshell.ipynb imports this module and calls up() / down().
 """
-import argparse, os, re, shlex, shutil, subprocess, sys, tempfile, time
+import os, re, shlex, shutil, subprocess, tempfile, time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -139,13 +138,3 @@ def status_text():
                      (("sandboxes", "openshell sandbox list"), ("providers", "openshell provider list"),
                       ("profiles", "openshell profile list")))
 
-
-def main():
-    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    parser.add_argument("command", choices=("up", "down", "status"))
-    args = parser.parse_args()
-    {"up": up, "down": down, "status": lambda: print(status_text())}[args.command]()
-
-
-if __name__ == "__main__":
-    main()

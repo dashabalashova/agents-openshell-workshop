@@ -1,4 +1,4 @@
-# OpenShell policy of the radar sandbox. Edit it, then run `python case.py up` again (it recreates the sandbox).
+# OpenShell policy of the radar sandbox. Edit it, then run case.up() in the notebook (it recreates the sandbox).
 version: 1
 
 filesystem_policy:
