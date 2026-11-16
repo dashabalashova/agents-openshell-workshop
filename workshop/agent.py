@@ -336,7 +336,8 @@ def run_search(ctx, w, call):
         raw = ctx["tavily"].search(query=query, topic=search_type, search_depth="basic", time_range=ctx["time_range"],
                                    max_results=6, timeout=min(30, max(5, ctx["left"]())))
         items = [{"title": r.get("title"), "url": r.get("url"), "content": _short(r.get("content", ""), 500),
-                  "date": normalize_date(r.get("published_date"), r.get("url"))} for r in raw.get("results", [])]
+                  "date": normalize_date(r.get("published_date"), r.get("url"))}
+                 for r in raw.get("results", []) if str(r.get("url", "")).startswith("https://")]      # https links only
         w["found"].update({it["url"]: it for it in items if it["url"]})
         log_trace("tool_call", role="worker", worker=w["topic"], tool="tavily_search", query=query, search_type=search_type,
                   n_results=len(items), n_dated=sum(1 for it in items if it["date"] != "unknown"),
