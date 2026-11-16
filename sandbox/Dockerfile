@@ -9,5 +9,4 @@ RUN groupadd --gid 1500 sandbox && useradd --uid 1500 --gid sandbox --create-hom
     && install -d -o sandbox -g sandbox /sandbox /sandbox/runs
 COPY app/ /sandbox/app/
 RUN chmod -R a+rX /sandbox/app
-ENV RADAR_WORK=/sandbox/runs
 WORKDIR /sandbox

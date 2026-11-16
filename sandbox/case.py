@@ -79,7 +79,7 @@ def up():
         fail(f"missing {missing}: set them as environment variables (create-devlab.sh) or in /workspace/.env")
     for path in (HERE / "policy.yaml", HERE / "Dockerfile", HERE / "app" / "main.py", HERE / "app" / "probe.py", AGENT):
         if not path.is_file():
-            fail(f"{path} is missing: upload the whole notebooks folder (agent.py and radar-openshell/)")
+            fail(f"{path} is missing: load the whole workshop content (agent.py and sandbox/)")
 
     step("gateway")
     rc, out = sh("openshell status")

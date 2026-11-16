@@ -5,8 +5,8 @@
     code    dates, URL checks, memory, report: fixed code, never a model
 
 Nobody generates or runs code. The same file runs in the notebook (radar.ipynb) and inside the OpenShell
-sandbox (radar-openshell/): the sandbox image copies it as it is. Where files are written is set by
-RADAR_WORK (default /workspace/radar; the sandbox image sets /sandbox/runs).
+sandbox (sandbox/): the sandbox image copies it as it is. Where files are written is set by
+RADAR_WORK (default /workspace/radar; the sandbox entry point app/main.py sets /sandbox/runs).
 """
 import json, os, re, time, datetime as dt
 from collections import Counter
@@ -29,6 +29,7 @@ CANDIDATES_PER_WORKER = 4     # candidates one worker may hand to the lead
 MAX_FINDINGS          = 8     # findings in the report
 TIMEOUT_S             = 120   # total time budget of one run, seconds
 LEAD_RESERVE_S        = 30    # kept for the lead's final review: workers stop earlier when time is short
+MAX_QUERY_WORDS       = 10    # a search query is plain words; long queries with operators return few or no results
 
 KEY_NAMES = ("NEBIUS_API_KEY", "TAVILY_API_KEY")
 ENV_FILES = (Path("/workspace/.env"), Path(".env"))          # optional; real environment variables win
@@ -192,12 +193,15 @@ def plan_prompt(per, days):
     return (f"You are the lead of a research radar for a student of the course CS 329Z: Engineering AI Agents.\n"
             f"For each requested course topic write up to {per} English web-search queries that find NEW items (last {days} days): "
             f"articles, papers, projects or releases about AI agents on that topic.\n"
+            f"Each query is plain natural-language words, 3 to {MAX_QUERY_WORDS} words. No quotes, no parentheses, no OR / AND, "
+            f"no site: / after: / before: operators, no dates: the search is already limited to the last {days} days. "
+            f"Different queries of one topic should look at different angles (for example one for papers, one for news and releases).\n"
             f'Return ONLY a JSON object (no prose, no markdown): {{"<topic>": ["query", ...], ...}} with exactly the requested topics as keys.\n\n'
             f"Course topics:\n{TOPIC_LIST}")
 
 def worker_prompt(topic, per):
     return (f'You are a search worker, a sub-agent of a research radar for the course CS 329Z. Your topic: "{topic}" ({TOPICS[topic]}).\n'
-            f"Run the given queries with the tavily_search tool (at most {per} calls). Use topic \"news\" for blog posts, news and releases "
+            f"Run the given queries with the tavily_search tool exactly as they are written (at most {per} calls). Use topic \"news\" for blog posts, news and releases "
             f"(results then have dates) and topic \"general\" for papers and GitHub projects.\n"
             f"Then return ONLY a JSON array (no prose, no markdown) of at most {CANDIDATES_PER_WORKER} candidates:\n"
             f'{{"title": str, "url": str, "kind": one of {list(KINDS)}, "summary": one sentence taken from the search results, '
@@ -216,6 +220,8 @@ def review_prompt():
 
 
 # ---- building blocks -------------------------------------------------------------------------------------
+QUERY_OPERATORS = re.compile(r"\b(?:after|before|site|filetype|inurl|intitle|intext|related):|\b(?:OR|AND|NOT)\b|[\"()]")
+
 def validate_plan(text, topics, per):
     t = re.sub(r"^```(?:json)?\s*|\s*```$", "", (text or "").strip())
     try:
@@ -229,6 +235,10 @@ def validate_plan(text, topics, per):
         queries = data.get(topic)
         if not isinstance(queries, list) or not queries or any(not isinstance(q, str) or not q.strip() for q in queries):
             raise ValueError(f"topic {topic!r}: a non-empty list of query strings is required")
+        for q in queries:
+            if QUERY_OPERATORS.search(q) or len(q.split()) > MAX_QUERY_WORDS:
+                raise ValueError(f"topic {topic!r}: query {q!r} must be plain words (no quotes, parentheses, OR/AND, "
+                                 f"after:/before:/site: operators, no dates), at most {MAX_QUERY_WORDS} words")
         plan[topic] = [q.strip() for q in queries][:per]
     return plan
 

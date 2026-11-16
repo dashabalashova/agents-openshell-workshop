@@ -20,7 +20,7 @@ The agent cannot run code, but we do not want to rely on that alone: the sandbox
 Fixed code (not a model) sets the dates, checks every URL against the search results, keeps a memory of shown URLs, writes traces and draws the report.
 Limits per run: 6 searches in total, 120 s, 8 findings; invalid JSON gets one retry. Models: any pair with function calling; set `LEAD_MODEL` / `WORKER_MODEL`.
 
-## What OpenShell enforces (`radar-openshell/`)
+## What OpenShell enforces (`sandbox/`)
 
 | Layer | Guarantee |
 |---|---|
@@ -38,11 +38,11 @@ The notebook runs 28 checks (PASS/FAIL table at the end) and shows the audit log
 |---|---|
 | `radar-openshell.ipynb` | the scenario: runs the agent in the sandbox, shows the results, who did what, the checks and the audit log |
 | `agent.py` | the whole agent; used by the notebook and copied into the sandbox image |
-| `radar-openshell/case.py` | prepared setup: `up()` / `down()` (providers, sandbox image, sandbox) |
-| `radar-openshell/checks.py` | the OpenShell checks and the audit |
-| `radar-openshell/policy.yaml` | the sandbox policy (edit it to experiment) |
-| `radar-openshell/profiles/` | credential profiles for the two providers |
-| `radar-openshell/Dockerfile`, `app/` | the sandbox image and the programs that run inside it |
+| `sandbox/case.py` | prepared setup: `up()` / `down()` (providers, sandbox image, sandbox) |
+| `sandbox/checks.py` | the OpenShell checks and the audit |
+| `sandbox/policy.yaml` | the sandbox policy (edit it to experiment) |
+| `sandbox/profiles/` | credential profiles for the two providers |
+| `sandbox/Dockerfile`, `sandbox/app/` | the sandbox image and the programs that run inside it |
 
 ## Run it
 
@@ -54,20 +54,20 @@ You need a Devlab with JupyterLab, Docker and an OpenShell gateway named `devlab
    cd /workspace && curl -fsSL https://github.com/dashabalashova/agents-openshell-workshop/archive/refs/heads/main.tar.gz | tar xz --strip-components=1
    ```
 
-   Running it again overwrites the files (copy `radar-openshell/policy.yaml` first if you edited it).
+   Running it again overwrites the files (copy `sandbox/policy.yaml` first if you edited it).
 2. Keys: if the Devlab was created with `NEBIUS_API_KEY` and `TAVILY_API_KEY` as environment variables you are done; otherwise create `/workspace/.env` with two lines
    `NEBIUS_API_KEY=...` and `TAVILY_API_KEY=...` (never commit it).
 3. Open `radar-openshell.ipynb` and run all cells (about 30 seconds once the sandbox image is built; the first run also builds it).
-4. Experiment: edit `radar-openshell/policy.yaml`, run `case.up()` again and re-run from section 5. A weakened policy makes the matching check fail.
+4. Experiment: edit `sandbox/policy.yaml`, run `case.up()` again and re-run from section 5. A weakened policy makes the matching check fail.
 5. Clean up with the last cell (`case.down()`).
 
 ## Status
 
-- The agent was tested with stub model and search clients (44 checks: division of labour between the two models, search budget, invalid JSON, invented links, memory, dates).
-- A previous single-model version of the agent and the OpenShell checks ran in a real Devlab: 28 of 28 checks passed.
-- Not yet verified: a full run of this notebook with the two-model agent in a freshly created Devlab; the quality of the findings; whether the small model saves money.
+- The agent was tested with stub model and search clients (49 checks: division of labour between the two models, search budget, plain-word queries, invalid JSON, invented links, memory, dates); the layout of the repo is checked too (75 checks in total).
+- The notebook ran end to end in a freshly created Devlab (JupyterLab + OpenShell v0.1.1): the lead made 2 model calls, the workers 6, 12 candidates became 6 findings, and 28 of 28 OpenShell checks passed.
+- Not verified: the quality of the findings (summaries come from search snippets), whether the small model saves money (no prices measured), many participants at once.
 
 ## Notes
 
-- Use dedicated API keys for a workshop and rotate them afterwards. A Devlab URL is public and protected only by its Jupyter token.
+- Use dedicated API keys for a workshop and rotate them afterwards. A Devlab URL is public and protected only by its Jupyter token. The Devlab itself is created by a separate setup script (not part of this repo).
 - Some search results have no publication date; arXiv papers show only the month.

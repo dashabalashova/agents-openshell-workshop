@@ -14,7 +14,7 @@ from collections import Counter
 from pathlib import Path
 
 import case
-sys.path.insert(0, str(case.HERE.parent))        # agent.py lives next to the radar-openshell folder
+sys.path.insert(0, str(case.HERE.parent))        # agent.py lives next to the sandbox folder
 import agent
 
 CASE = case.HERE
